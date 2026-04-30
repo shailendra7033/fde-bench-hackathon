@@ -1,5 +1,10 @@
 # FDEBench — How Your Solution Is Scored
 
+> 📺 **[V3 — FDE on FDEBench scoring](https://youtu.be/JnfGzRVc_xU)** walks through this end to end.
+> The exact weights and formulas are implemented in
+> [`py/common/libs/fdebenchkit/`](../../py/common/libs/fdebenchkit/) — that
+> code is the source of truth. This page mirrors it for reference.
+
 FDEBench is a 2-tier evaluation framework. **Tier 1** (your public leaderboard score) calls your 3 APIs against ~1,250 hidden eval items and computes a single 0–100 score using deterministic metrics. **Tier 2** is an engineering review of your code by judges, applied to top submissions.
 
 ---

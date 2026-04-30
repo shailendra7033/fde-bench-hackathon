@@ -2,15 +2,27 @@
 
 `POST /triage`
 
+## 📺 Briefings — watch these first
+
+| | | |
+|:---:|:---:|:---:|
+| [<img src="https://img.youtube.com/vi/yLGHRmZPzu0/hqdefault.jpg" width="260">](https://youtu.be/yLGHRmZPzu0) | [<img src="https://img.youtube.com/vi/9crDxcGLzYA/hqdefault.jpg" width="260">](https://youtu.be/9crDxcGLzYA) | [<img src="https://img.youtube.com/vi/JnfGzRVc_xU/hqdefault.jpg" width="260">](https://youtu.be/JnfGzRVc_xU) |
+| **V1 — The Customer Problem**<br/>Cmdr. Kapoor | **V2 — What "Good" Looks Like**<br/>Customer Architect | **V3 — How FDEBench Scores You**<br/>Microsoft FDE |
+
+> The videos cover priority intuition, escalation rules, engineering
+> signals judges look for, and how scoring works. This README is the
+> mechanical contract — endpoints, schemas, and the exact label strings
+> you must emit.
+
 Take an incoming mission signal and return a triage decision: what category, how urgent, which team, what's missing, what to do next.
 
 The signals are messy — vague reports, contradictory subjects, noise from automated systems, and the occasional prompt injection. Your system needs to read through the noise and make a routing call.
 
 Read the background:
 
-- [customer_brief.md](customer_brief.md) — who the customer is, what's broken
-- [routing_guide.md](routing_guide.md) — how to route and when to escalate
-- [engineering_review.md](engineering_review.md) — what judges look for in your code
+- [customer_brief.md](customer_brief.md) — team labels reference
+- [routing_guide.md](routing_guide.md) — gray areas and ambiguity disclosure
+- [engineering_review.md](engineering_review.md) — pointer to V2/V3
 
 ## Request Contract
 
@@ -75,27 +87,9 @@ Missing Information (16 exact strings):
 
 `affected_subsystem`, `anomaly_readout`, `sequence_to_reproduce`, `affected_crew`, `habitat_conditions`, `stardate`, `previous_signal_id`, `crew_contact`, `module_specs`, `software_version`, `sector_coordinates`, `mission_impact`, `recurrence_pattern`, `sensor_log_or_capture`, `biometric_method`, `system_configuration`
 
-## Resolution Scoring
+## Scoring
 
-```
-resolution = (0.24 x category_f1 + 0.24 x priority_f1 + 0.24 x routing_f1 + 0.17 x missing_info_f1 + 0.11 x escalation_f1) x 100
-```
-
-| Dimension | Weight | Metric |
-|---|---|---|
-| `category` | 24% | Macro F1 |
-| `priority` | 24% | Mean partial credit |
-| `routing` | 24% | Macro F1 |
-| `missing_info` | 17% | Mean set F1 |
-| `escalation` | 11% | Binary F1 |
-
-## What's Hard
-
-Vague and contradictory reports. Subject line doesn't match the body. Multiple issues in one signal. Non-incident noise mixed in. Social engineering and prompt injection attempts. Ambiguous routing between teams.
-
-## Tips
-
-- Route correctly before trying to sound smart.
-- Use context, not just keywords, to set priority.
-- Treat missing information as part of the answer.
-- Be conservative with escalation on safety-critical cases.
+Resolution is one of three components in your Tier 1 score. The exact
+formula, weights, and per-dimension metrics live in
+[`py/common/libs/fdebenchkit/`](../../../py/common/libs/fdebenchkit/) and
+are walked through in [V3](https://youtu.be/JnfGzRVc_xU).

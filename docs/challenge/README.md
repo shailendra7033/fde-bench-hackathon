@@ -4,6 +4,22 @@
 
 This challenge tests whether you can build AI-powered solutions that are accurate, fast, resilient, and well-engineered. Each task is a different kind of problem. Your final score is the average across all three — consistency matters.
 
+## 📺 Briefings
+
+Watch these before writing code. Most of the *judgment* part of each task —
+priority intuition, escalation philosophy, what good engineering looks like,
+and how scoring actually works — lives in the videos, not the markdown.
+
+### Task 1 — Signal Triage
+
+| | | |
+|:---:|:---:|:---:|
+| [<img src="https://img.youtube.com/vi/yLGHRmZPzu0/hqdefault.jpg" width="280">](https://youtu.be/yLGHRmZPzu0) | [<img src="https://img.youtube.com/vi/9crDxcGLzYA/hqdefault.jpg" width="280">](https://youtu.be/9crDxcGLzYA) | [<img src="https://img.youtube.com/vi/JnfGzRVc_xU/hqdefault.jpg" width="280">](https://youtu.be/JnfGzRVc_xU) |
+| **V1 — The Customer Problem**<br/>Cmdr. Kapoor | **V2 — What "Good" Looks Like**<br/>Customer Architect | **V3 — How FDEBench Scores You**<br/>Microsoft FDE |
+
+> Briefings for Task 2 and Task 3 are coming. Until then, those task folders
+> stand on their own.
+
 ## Folder Layout
 
 | Path | Purpose |
@@ -36,7 +52,7 @@ Each task is scored independently. Your final FDEBench score is the mean of the 
 
 ## How To Read The Tasks
 
-Open the task README, check the response contract and scoring weights, then read the support docs in the same folder. Each task folder stands alone.
+Open the task README, check the response contract, then watch the briefings and read the support docs in the same folder. Each task folder stands alone.
 
 ## FDEBench Summary
 
