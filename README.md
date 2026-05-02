@@ -1,10 +1,12 @@
 # Be a Microsoft FDE for a Day
 
-> **FDE Hackathon FY26** — Build, deploy, and benchmark an AI-powered API across three real-world tasks.
+The FDE Hackathon. Watch the intro first, then read the rest.
+
+[<img src="https://img.youtube.com/vi/Lp6fq74zYBY/hqdefault.jpg" width="480" alt="Intro video">](https://youtu.be/Lp6fq74zYBY)
 
 ## Overview
 
-This is the FY26 FDE Hackathon. You're deploying an AI-powered API that solves three business problems, scored by [FDEBench](docs/challenge/README.md).
+You're deploying an AI-powered API that solves three business problems, scored by [FDEBench](docs/challenge/README.md).
 
 The tasks are modeled on real customer engagements — noisy inputs, messy documents, multi-step workflows with constraints. Your solution needs to work, not just pass tests. FDEBench scores accuracy, latency, cost, resilience, and code quality. Judges also read your repo.
 

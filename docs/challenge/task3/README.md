@@ -76,17 +76,17 @@ During **platform scoring**, the platform does the same rewriting — it points 
 
 ```json
 {
-  "task_id": "TASK-0170",
+  "task_id": "TASK-0015",
   "goal": "Analyze churn risk for ...",
   "available_tools": [
     {
       "name": "crm_search",
-      "endpoint": "http://localhost:9090/scenario/TASK-0170/crm_search",
+      "endpoint": "http://localhost:9090/scenario/TASK-0015/crm_search",
       "parameters": [...]
     }
   ],
   "constraints": ["..."],
-  "mock_service_url": "http://localhost:9090/scenario/TASK-0170"
+  "mock_service_url": "http://localhost:9090/scenario/TASK-0015"
 }
 ```
 
@@ -138,9 +138,25 @@ uvicorn my_app:app --port 8000
 curl -s http://localhost:9090/health
 # → {"status":"ok","scenarios_loaded":"50"}
 
-curl -X POST http://localhost:9090/scenario/TASK-0170/crm_search -H "Content-Type: application/json" -d '{}'
-# → {"accounts": [{"account_id": "ACC-0170-0", ...}, ...]}
+curl -X POST http://localhost:9090/scenario/TASK-0015/crm_search -H "Content-Type: application/json" -d '{}'
+# → {"accounts": [{"account_id": "ACC-0015-0", ...}, ...]}
 ```
+
+> **Calibration only — your local public T3 score will be near 100%.**
+>
+> The shipped `py/data/task3/public_eval_50_mock_responses.json` is the
+> deterministic answer key for the 50 public scenarios. The local mock
+> service replays it byte-for-byte, so a working orchestration loop will
+> almost always achieve a perfect score on the public set. **Use this to
+> verify your harness wiring (your endpoint speaks the contract, parses
+> the responses, satisfies basic constraints) — not as a leaderboard
+> preview.**
+>
+> Hidden eval rewrites every `task_id` per submission via an opaque
+> session prefix and serves responses from a remote mock service the
+> candidate cannot inspect. Your hidden score depends on actually
+> *executing* the workflow correctly, not on memorising the public
+> answer key.
 
 ## What's Hard
 

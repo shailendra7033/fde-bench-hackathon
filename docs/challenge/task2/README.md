@@ -15,9 +15,20 @@ Read the background:
 Input fields:
 
 - `document_id`
-- `content` — base64-encoded document image
-- `content_format` — `"image_base64"`
+- `content` — relative path to the document image file (e.g., `images/DOC-OCR-0869.png`), resolved against the directory containing `public_eval_50.json`
+- `content_format` — `"image_path"` (the hidden eval may use other formats)
 - `json_schema` — JSON schema describing the expected output structure (each document has a different schema)
+
+The public-eval images live next to the input file at [`py/data/task2/images/`](../../../py/data/task2/images/) and are loaded directly from disk:
+
+```python
+from pathlib import Path
+import json
+
+task2_dir = Path("py/data/task2")
+records = json.loads((task2_dir / "public_eval_50.json").read_text())
+image_bytes = (task2_dir / records[0]["content"]).read_bytes()
+```
 
 See [../../../py/data/task2/input_schema.json](../../../py/data/task2/input_schema.json) for the formal schema.
 

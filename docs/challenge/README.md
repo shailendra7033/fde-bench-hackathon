@@ -1,14 +1,16 @@
 # The Challenge
 
-**FDE Hackathon FY26** — three endpoints, one deployed service, scored by FDEBench.
+FDE Hackathon. You build one service with three task endpoints
+and FDEBench scores it.
 
-This challenge tests whether you can build AI-powered solutions that are accurate, fast, resilient, and well-engineered. Each task is a different kind of problem. Your final score is the average across all three — consistency matters.
+The three tasks are different problems. Your final score is the mean
+of the three, so consistency beats one strong endpoint.
 
 ## 📺 Briefings
 
-Watch these before writing code. Most of the *judgment* part of each task —
-priority intuition, escalation philosophy, what good engineering looks like,
-and how scoring actually works — lives in the videos, not the markdown.
+Watch these before writing code. The videos cover the judgment calls:
+priority, escalation, what good engineering looks like, how scoring
+actually works. The markdown doesn't.
 
 ### Task 1 — Signal Triage
 
@@ -20,7 +22,7 @@ and how scoring actually works — lives in the videos, not the markdown.
 > Briefings for Task 2 and Task 3 are coming. Until then, those task folders
 > stand on their own.
 
-## Folder Layout
+## Folder layout
 
 | Path | Purpose |
 |---|---|
@@ -37,7 +39,7 @@ and how scoring actually works — lives in the videos, not the markdown.
 | [task3/execution_guide.md](task3/execution_guide.md) | Task 3 execution and constraint guide |
 | [task3/engineering_review.md](task3/engineering_review.md) | Task 3 Tier 2 engineering review guidance |
 
-## What You Are Building
+## What you are building
 
 You are building one deployed API with four endpoints:
 
@@ -48,20 +50,17 @@ You are building one deployed API with four endpoints:
 | `POST /extract` | Task 2: extract structured data from document images |
 | `POST /orchestrate` | Task 3: execute a constrained multi-step workflow |
 
-Each task is scored independently. Your final FDEBench score is the mean of the three task scores, so consistency matters more than a single standout endpoint.
+Each task is scored independently and the final FDEBench score is the mean of the three.
 
-## How To Read The Tasks
+## How to read the tasks
 
-Open the task README, check the response contract, then watch the briefings and read the support docs in the same folder. Each task folder stands alone.
+Open the task README, check the response contract, then watch the briefings and read the support docs in the same folder.
 
-## FDEBench Summary
+## FDEBench summary
 
-FDEBench has two tiers:
+FDEBench has two tiers. Tier 1 is the public deterministic score the platform runs on every submission. Tier 2 is the engineering review of your repo, done by judges.
 
-- **Tier 1** is the public deterministic score.
-- **Tier 2** is the judge-only engineering review of your repository.
-
-### Tier 1 Formula
+### Tier 1 formula
 
 ```
 tier1_k = 0.50 x Resolution_k + 0.20 x Efficiency_k + 0.30 x Robustness_k
@@ -74,7 +73,7 @@ fdebench = mean(tier1_task1, tier1_task2, tier1_task3)
 | Efficiency | 20% | Was it fast and cost-aware enough to be practical? |
 | Robustness | 30% | Did it survive hard cases and API resilience probes? |
 
-### Efficiency Detail
+### Efficiency
 
 ```
 efficiency = (0.60 x latency_score + 0.40 x cost_score) x 100
@@ -99,7 +98,7 @@ efficiency = (0.60 x latency_score + 0.40 x cost_score) x 100
 | Tier 5 | 0.3 | o1, o3-pro, claude-opus, gpt-4.5 |
 | Missing | 0.0 | No `X-Model-Name` header |
 
-### Robustness Detail
+### Robustness
 
 ```
 robustness = (0.60 x adversarial_accuracy + 0.40 x api_resilience) x 100
@@ -119,7 +118,7 @@ robustness = (0.60 x adversarial_accuracy + 0.40 x api_resilience) x 100
 | 6 | Concurrent burst | 20 requests in 500ms | >= 18 of 20 return valid responses |
 | 7 | Cold start | Normal request after 60s idle | Returns valid response |
 
-### Tier 1 Platform Behavior
+### Tier 1 platform behavior
 
 During scoring, the platform:
 
@@ -131,26 +130,46 @@ During scoring, the platform:
 
 Your service needs to handle concurrent requests, validate inputs, and return stable JSON. Don't crash under load.
 
-### Tier 2 Engineering Review
+**What the platform does and does not return.** After a submission completes you'll see your aggregate task scores and the FDEBench composite. You will **not** see per-dimension scores, per-item feedback, agent reasoning traces, or per-probe pass/fail. Use the local runner at `py/apps/eval/run_eval.py` against `public_eval_50.json` for per-dimension introspection.
 
-Judges read your repository for:
+**Eval items are shuffled per submission.** The platform reorders inputs deterministically per submission (keyed off your submission id). Join your responses on `request_id_key`, not on position. Don't rely on stable input order across submissions or across retries of the same submission. See [../eval/fdebench.md — Platform behaviour you should know](../eval/fdebench.md#platform-behaviour-you-should-know) for the full list.
 
-- **Code Quality** (25%) — structure, types, error handling, testing, readability
-- **Architecture Design** (30%) — AI pipeline, decomposition, API design, trade-off reasoning, scalability
-- **AI Problem Solving** (25%) — prompt engineering, evaluation methodology, model/cost awareness
-- **Engineering Maturity** (20%) — deployment, config/secrets, observability, security
+### Tier 2 engineering review
 
-Tier 2 is repo-level, not task-level. The agents evaluate all of your code together.
+Judges read the whole repo across four dimensions:
 
-Each task folder includes an `engineering_review.md` with what judges specifically look for in that task.
+| Dimension | Weight | What it covers |
+|---|---|---|
+| Code Quality | 25% | Structure, types, error handling, testing, readability |
+| Architecture Design | 30% | AI pipeline, decomposition, API design, trade-off reasoning, scalability |
+| AI Problem Solving | 25% | Prompt engineering, evaluation methodology, model and cost awareness |
+| Engineering Maturity | 20% | Deployment, config and secrets, observability, security |
 
-## Data and Local Eval
+Each task folder has an `engineering_review.md` with what judges look for on that specific task.
+
+## Data and local eval
 
 - Data contracts and public datasets live in [py/data/](../../py/data/) (organized as `task1/`, `task2/`, `task3/`).
 - Local scoring harness lives at `py/apps/eval/run_eval.py`. See [../eval/](../eval/) for docs.
 - Submission requirements live in [../submission/](../submission/).
 
-## Quick Start
+## Ask FDEbenchi
+
+FDEbenchi is a chat assistant on the Tasks tab. Each task card has an
+"Ask FDEbenchi" button.
+
+![The Ask FDEbenchi button on a task card](images/ask-fdebenchi-button.png)
+
+Click it and a side panel opens. Ask whatever you want about the
+platform: scoring, the probes, how to submit.
+
+![The chat panel open](images/ask-fdebenchi-panel.png)
+
+It will not write your code or your prompts. That's your job to
+figure out. If it doesn't know an answer, it'll point you at
+Discussions.
+
+## Quick start
 
 ```bash
 # 1. Read the challenge overview and task briefs

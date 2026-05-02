@@ -5,7 +5,17 @@
 > [`py/common/libs/fdebenchkit/`](../../py/common/libs/fdebenchkit/) — that
 > code is the source of truth. This page mirrors it for reference.
 
-FDEBench is a 2-tier evaluation framework. **Tier 1** (your public leaderboard score) calls your 3 APIs against ~1,250 hidden eval items and computes a single 0–100 score using deterministic metrics. **Tier 2** is an engineering review of your code by judges, applied to top submissions.
+FDEBench is a 2-tier evaluation framework. **Tier 1** (your public leaderboard score) calls your 3 APIs against ~2,000 hidden eval items (T1: 1,000, T2: 500, T3: 500) and computes a single 0–100 score using deterministic metrics. **Tier 2** is an engineering review of your code by judges, applied to top submissions.
+
+---
+
+## How the public set relates to your leaderboard score
+
+The public set in `py/data/task{1,2,3}/public_eval_50.json` is **50 items per task** — a stratified sample of the hidden set. We sample proportionally on `(difficulty × primary class)` so per-field marginal distributions match the hidden set within total-variation distance ≤ 0.05.
+
+**Treat the public set as a calibration sanity-check, not a leaderboard predictor.** At N=50, sampling noise alone is roughly ±10–13 percentage points on most dimensions. A 2-point public-score change is noise; a 10-point change probably means something real. The leaderboard runs on the full hidden set.
+
+The public gold deliberately omits the `difficulty` and `adversarial_subtype` fields — see [Robustness](#robustness--30-of-each-task) below.
 
 ---
 
@@ -119,9 +129,19 @@ Can your API handle the unexpected?
 robustness = 0.60 × adversarial_accuracy + 0.40 × api_resilience
 ```
 
+> **About the adversarial subset.** Roughly 30% of the hidden set for each task is adversarial — harder cases designed to test robustness. Concretely:
+>
+> * **T1 — Triage:** missing or contradictory context, ambiguous channels, signal buried in long noisy threads.
+> * **T2 — Extract:** deeply nested JSON schemas or coupled-field shapes (e.g. arrays of objects with cross-field constraints).
+> * **T3 — Orchestrate:** longer step counts, stricter compliance / ordering constraints, distractor tools.
+>
+> The `difficulty` label is **internal** — your public gold does not carry it. We do this so candidates optimise for uniform robustness rather than gating engineering effort on a label they can read at submission time.
+>
+> Each task's robustness sub-score is normalised by per-task adversarial fraction before being summed into the task score, so all 3 tasks contribute equally to the FDEBench aggregate regardless of their internal hard/easy mix. Optimising one task's robustness will not "steal" weight from the other tasks.
+
 ### Adversarial Accuracy (60%)
 
-Your resolution score is recalculated on a harder subset: edge cases, ambiguous phrasing, unusual formatting, and trick inputs. Same scoring dimensions, tougher inputs.
+Your resolution score is recalculated on the adversarial subset described above. Same scoring dimensions, tougher inputs. Because the public gold doesn't carry `difficulty`, you cannot self-score adversarial accuracy locally — only your aggregate resolution.
 
 ### API Resilience (40%)
 
@@ -195,3 +215,14 @@ The exact scoring logic lives in the fdebenchkit library at `py/common/libs/fdeb
 | `probes.py` | The 7 API resilience probes |
 
 Read the source — there are no hidden rules. What you see is what scores you.
+
+---
+
+## Platform behaviour you should know
+
+A few platform behaviours are not visible from the API surface and will silently break naive assumptions:
+
+* **Eval items are shuffled per submission.** The platform reorders inputs deterministically per submission (keyed off your submission id). Join your responses on `request_id_key`, not on position. Don't rely on stable input order across submissions or across retries of the same submission.
+* **You don't get per-dimension or per-item feedback.** After a submission completes you'll see your aggregate task scores and FDEBench composite. You will **not** see per-dimension scores, per-item feedback, agent reasoning traces, or per-probe pass/fail. Use your local `run_eval.py` against `public_eval_50.json` for per-dimension introspection.
+* **The `mock_service_url` host in T3 inputs is rewritten at submission time.** The public gold ships `https://example.invalid/scenario/<task_id>` as a deliberate placeholder; the platform substitutes the real per-task scenario URL when your `/orchestrate` endpoint is called. Don't hard-code the placeholder host.
+

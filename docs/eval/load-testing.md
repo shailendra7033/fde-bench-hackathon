@@ -61,9 +61,9 @@ hey -z 120s -q 5 -c 5 -m POST \
   http://localhost:8000/triage
 ```
 
-### Task 2 (Extract) — Large Payload
+### Task 2 (Extract) — Image-Path Payload
 
-Extract payloads include base64 images (100–700 KB per request). Test with a real payload from the eval data:
+Public-eval extract requests reference local image files via `content_format: "image_path"`. The request bodies are tiny (~1 KB JSON), but your endpoint will load the actual PNG (100 KB – 11 MB) from disk before invoking the vision model. Test with a real payload from the eval data:
 
 ```bash
 # Extract the first eval item as a payload file
@@ -75,6 +75,7 @@ with open('data/task2/public_eval_50.json') as f:
 with open('/tmp/extract_payload.json', 'w') as f:
     json.dump(items[0], f)
 print(f'Payload size: {len(json.dumps(items[0]))//1024} KB')
+print(f'Image: {items[0][\"content\"]}')
 "
 
 # Serial baseline (extract is slow — vision model)
@@ -157,7 +158,7 @@ python run_eval.py --endpoint "$API_URL"
 | Cold start timeout | First request after idle fails | Set min replicas ≥ 1 in Container Apps |
 | Azure OpenAI 429s | Spiky latency, intermittent 500s | Add retry with exponential backoff, use multiple endpoints |
 | Large prompts | High P95 on triage | Trim system prompt, use structured output instead of free-form |
-| Base64 in memory | OOM on extract | Stream the image, don't buffer the full base64 string |
+| Large image in memory | OOM on extract | Stream/decode the image once; don't keep multiple in-memory copies |
 | Sequential tool calls | Slow orchestration | Parallelize independent tool calls where constraints allow |
 | No connection reuse | High latency variance | Use a singleton `AsyncClient` / `AsyncOpenAI`, don't recreate per request |
 

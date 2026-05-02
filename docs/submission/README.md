@@ -30,7 +30,7 @@ All three docs are mandatory. Missing one affects your Tier 2 (engineering quali
 
 ### Tier 1 — Deterministic (Public Leaderboard)
 
-Your deployed API is called with ~1,000 hidden instances per task.
+Your deployed API is called with a hidden eval set per task (T1: ~1,000, T2: ~500, T3: ~500).
 
 | Dimension | Weight | Description |
 |-----------|--------|-------------|
@@ -41,6 +41,12 @@ Your deployed API is called with ~1,000 hidden instances per task.
 Per-task scores are averaged into a FDEBench composite (0-100).
 
 FDEBench rewards consistency — solid across all three tasks usually beats amazing on one and weak on the others.
+
+#### What you get back from the platform
+
+After a submission completes you'll see your aggregate task scores and FDEBench composite. You will **not** see per-dimension scores, per-item feedback, agent reasoning traces, or per-probe pass/fail. Use the local runner at `py/apps/eval/run_eval.py` against `public_eval_50.json` for per-dimension introspection.
+
+Eval items are also shuffled per submission — join responses on `request_id_key`, not on position. See [How Your Solution Is Scored — Platform behaviour you should know](../eval/fdebench.md#platform-behaviour-you-should-know) for the full list.
 
 ### Tier 2 — LLM-as-Judge (Judges Only)
 
@@ -88,7 +94,7 @@ If you use the local runner at `py/apps/eval/run_eval.py` to gather your numbers
 
 ### Task 2: Document Extraction
 
-- [ ] Handles `image_base64` content format (document images)
+- [ ] Handles `image_path` content format on the public eval; check `content_format` and resolve `content` against the request's data dir
 - [ ] Reads `json_schema` from the request and returns matching structured JSON
 - [ ] Response includes `document_id` plus all fields specified by the document's schema
 - [ ] Nested objects and arrays properly structured (tables, lists, sub-objects)
