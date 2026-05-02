@@ -1,0 +1,5 @@
+# Cohort-2 secrecy contract: the mock-responses file is the literal answer
+# key for the T3 tool-call workflow (resolution + ordering + tool selection
+# collapse to a dict lookup if shipped). Generated only into the platform
+# repo's internal/ tree; must NEVER be tracked here.
+public_eval_50_mock_responses.json
