@@ -49,6 +49,30 @@ The platform scores your submission against larger hidden datasets:
 
 Adversarial items are tagged with `"difficulty": "adversarial"` and scored separately for the Robustness dimension.
 
+## Reading your local score (calibration, not ranking)
+
+The 50-item public eval sets shipped here are a **calibration probe**,
+not a leaderboard preview. Two things to keep in mind:
+
+1. **Statistical noise on N=50 is real.** A submission scoring 70%
+   on the public set has a 95% confidence interval of roughly
+   ±12.7 percentage points (Wilson interval, N=50, p=0.7). A run
+   that scores 65% on the public set is *not* meaningfully worse
+   than a run that scores 75%. Use the local set to catch regressions
+   (>15-point drops), not to chase 1–2 point gains.
+
+2. **The hidden set is drawn from a different stratification.** The
+   hidden 1000/500/500 sets cover more sub-populations and a higher
+   adversarial fraction (target 25–35% per task vs. ~20% in the public
+   set). Your absolute public-set score will differ from your hidden
+   score even with no model change.
+
+The official leaderboard reports your **percentile within your
+cohort** ("top N% of cohort 1"), not the absolute score. Optimise for
+robustness across the rubric dimensions (resolution, efficiency,
+adversarial, API resilience) — chasing a single absolute number on
+the public set is unlikely to translate.
+
 ## Schemas
 
 Each task directory contains `input_schema.json` and `output_schema.json` defining the request and response contracts. Your endpoints must accept and return JSON matching these schemas.
