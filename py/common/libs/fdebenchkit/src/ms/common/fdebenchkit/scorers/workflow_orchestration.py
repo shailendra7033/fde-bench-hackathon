@@ -1,24 +1,26 @@
 # Copyright (c) Microsoft. All rights reserved.
-"""Deterministic scoring for Task 3: Workflow Orchestration.
+"""Deterministic scoring for Task 3 (Workflow Orchestration).
 
 Scores candidate execution traces against gold plans. Five dimensions,
-all deterministic — no LLM involved.
+no LLMs involved.
 
 Dimensions and weights (informed by τ-bench outcome-based scoring):
-  1. goal_completion       — 20% — data-driven outcome assertions on end-state
-  2. tool_selection        — 15% — multiset F1 on tools
-  3. parameter_accuracy    — 05% — per-call parameter match (demoted — low variance)
-  4. ordering_correctness  — 20% — dependency constraint satisfaction (causal only)
-  5. constraint_compliance — 40% — data-driven outcome assertions (primary differentiator)
+  1. goal_completion       (20%): data-driven outcome assertions on end-state
+  2. tool_selection        (15%): multiset F1 on tools
+  3. parameter_accuracy    (5%):  per-call parameter match (demoted, low variance)
+  4. ordering_correctness  (20%): dependency constraint satisfaction (causal only)
+  5. constraint_compliance (40%): data-driven outcome assertions (primary differentiator)
 
-Scoring philosophy:
-  - Outcome-weighted: constraint_compliance checks business outcomes, not trace shape.
-  - Strict on correctness: missing parameters penalized, not ignored.
-  - No free points: empty submissions score 0 everywhere.
-  - State-transition, not trace-replay: harmless reordering not penalized.
-  - Data-driven assertions preferred over hardcoded template logic.
-
-All metrics are deterministic. Fully auditable.
+Notes on the weighting:
+  - constraint_compliance carries the most weight because it checks
+    business outcomes, not trace shape.
+  - Empty submissions score 0 everywhere (missing parameters are
+    penalized, not ignored).
+  - Reordering that respects dependencies isn't penalized; we score
+    state transitions, not trace replay.
+  - Outcome assertions are read from the gold dataset rather than
+    hard-coded template branches, so adding new templates doesn't
+    require touching this scorer.
 """
 
 from collections import Counter
@@ -27,19 +29,17 @@ from typing import Any
 
 from ms.common.fdebenchkit.scorers._utils import normalize_text
 
-# ── Weights (sum to 1.0) ─────────────────────────────────────────────
-
-# Weight philosophy (informed by τ-bench outcome-based scoring):
-# Outcome dimensions weighted highest. parameter_accuracy is demoted
-# because it has near-zero variance (mean=0.996, std=0.063) — it doesn't
-# differentiate candidates. Its weight is redistributed to ordering
+# Weights (sum to 1.0).
+# parameter_accuracy is intentionally low: empirically it has near-zero
+# variance across submissions (mean=0.996, std=0.063), so it doesn't
+# differentiate candidates. Its weight was redistributed to ordering
 # (harder to game) and constraints (outcome-based).
 
 WEIGHT_GOAL_COMPLETION = 0.20  # did the workflow complete correctly?
 WEIGHT_TOOL_SELECTION = 0.15  # were the right tools used? (trace)
 WEIGHT_PARAMETER_ACCURACY = 0.05  # were parameters correct? (low variance, demoted)
 WEIGHT_ORDERING = 0.20  # were dependencies respected? (hard to game)
-WEIGHT_CONSTRAINTS = 0.40  # were outcomes correct? (outcome — highest weight)
+WEIGHT_CONSTRAINTS = 0.40  # were outcomes correct? (highest weight)
 
 DIMENSION_WEIGHTS: dict[str, float] = {
     "goal_completion": WEIGHT_GOAL_COMPLETION,
@@ -49,7 +49,7 @@ DIMENSION_WEIGHTS: dict[str, float] = {
     "constraint_compliance": WEIGHT_CONSTRAINTS,
 }
 
-# ── Text normalization ────────────────────────────────────────────────
+# Text normalization
 
 # Use normalize_text from _utils as the local normalizer
 _normalize = normalize_text
@@ -108,7 +108,7 @@ def _param_value_match(candidate: object, gold: object) -> float:
             return 0.0
         return 2 * precision * recall / (precision + recall)
 
-    # Type mismatch — try string comparison as fallback
+    # Type mismatch: fall back to string comparison.
     return 1.0 if _normalize(str(candidate)) == _normalize(str(gold)) else 0.0
 
 
@@ -143,7 +143,7 @@ def _count_matching_calls(
     return count
 
 
-# ── Dimension scorers ─────────────────────────────────────────────────
+# Dimension scorers
 
 
 def score_goal_completion(
@@ -463,10 +463,10 @@ def score_constraint_compliance(
     """Were outcomes correct? Primary differentiation dimension.
 
     Uses data-driven ``outcome_assertions`` from the gold data when available
-    (preferred — generic, auditable, template-agnostic). Falls back to
-    template-specific hardcoded checks, then generic heuristics.
+    (generic, auditable, template-agnostic). Falls back to template-specific
+    hardcoded checks, then generic heuristics.
 
-    Empty candidate always scores 0 — no free points.
+    Empty candidate always scores 0.
     """
     if not candidate_steps:
         return 0.0
@@ -511,8 +511,8 @@ def score_constraint_compliance(
         else:
             checks.append(1.0)  # Within bounds
 
-    # Check 3: Notification routing — if gold notifies specific teams,
-    # candidate should notify the same teams
+    # Check 3: notification routing. If gold notifies specific teams,
+    # candidate should notify the same teams.
     gold_notifications = [s["parameters"].get("user_id", "") for s in gold_steps if s["tool"] == "notification_send"]
     candidate_notifications = [
         s.get("parameters", {}).get("user_id", "")
@@ -526,8 +526,8 @@ def score_constraint_compliance(
             overlap = len(gold_targets & candidate_targets)
             checks.append(overlap / len(gold_targets))
 
-    # Check 4: Email targets — if gold sends to specific accounts,
-    # candidate should send to the same accounts (not to skipped ones)
+    # Check 4: email targets. If gold sends to specific accounts,
+    # candidate should send to the same accounts (not to skipped ones).
     gold_emails = [s["parameters"].get("account_id", "") for s in gold_steps if s["tool"] == "email_send"]
     candidate_emails = [
         s.get("parameters", {}).get("account_id", "")
@@ -874,7 +874,7 @@ def _hard_dependencies(current_step: dict[str, Any], gold_steps: list[dict[str, 
     return dependencies
 
 
-# ── Outcome assertions evaluator ──────────────────────────────────────
+# Outcome assertions evaluator
 
 
 def evaluate_outcome_assertions(
@@ -884,13 +884,13 @@ def evaluate_outcome_assertions(
     """Evaluate data-driven outcome assertions against candidate steps.
 
     Each assertion is a dict with:
-      - check: "call_count" (default) — count tool calls matching criteria
-            - check: "tool_count" — compare total executed call count to bounds
-      - tool: which tool to check
-            - match: dict of param key/value pairs ALL of which must match as a recursive subset
-      - equals: exact count required
-      - min: minimum count required
-      - max: maximum count required
+      - check: "call_count" (default) counts tool calls matching criteria.
+      - check: "tool_count" compares total executed call count to bounds.
+      - tool: which tool to check.
+      - match: dict of param key/value pairs ALL of which must match as a recursive subset.
+      - equals: exact count required.
+      - min: minimum count required.
+      - max: maximum count required.
 
     Returns fraction of assertions satisfied (0.0–1.0).
     """
@@ -931,13 +931,13 @@ def evaluate_outcome_assertions(
                 passed = passed and (count <= maximum)
             results.append(passed)
         else:
-            # Unknown check type — skip
+            # Unknown check type, skip.
             pass
 
     return sum(1.0 for r in results if r) / len(results) if results else 1.0
 
 
-# ── Per-task scorer ───────────────────────────────────────────────────
+# Per-task scorer
 
 
 def score_task(
@@ -974,7 +974,7 @@ def score_task(
     }
 
 
-# ── Full submission scorer ────────────────────────────────────────────
+# Full submission scorer
 
 
 def score_submission(

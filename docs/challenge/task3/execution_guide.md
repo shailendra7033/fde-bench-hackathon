@@ -1,4 +1,4 @@
-# Task 3 — Execution Guide
+# Task 3: Execution Guide
 
 This is an execution task. The benchmark rewards workflows that achieve the right outcome while respecting constraints, not plans that read well on paper.
 

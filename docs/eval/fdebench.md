@@ -1,9 +1,9 @@
-# FDEBench — How Your Solution Is Scored
+# FDEBench: how your solution is scored
 
-> 📺 **[V3 — FDE on FDEBench scoring](https://youtu.be/JnfGzRVc_xU)** walks through this end to end.
+> 📺 **[V3, FDE on FDEBench scoring](https://youtu.be/JnfGzRVc_xU)** walks through this end to end.
 > The exact weights and formulas are implemented in
-> [`py/common/libs/fdebenchkit/`](../../py/common/libs/fdebenchkit/) — that
-> code is the source of truth. This page mirrors it for reference.
+> [`py/common/libs/fdebenchkit/`](../../py/common/libs/fdebenchkit/), which is
+> the source of truth. This page mirrors it for reference.
 
 FDEBench is a 2-tier evaluation framework. **Tier 1** (your public leaderboard score) calls your 3 APIs against ~2,000 hidden eval items (T1: 1,000, T2: 500, T3: 500) and computes a single 0–100 score using deterministic metrics. **Tier 2** is an engineering review of your code by judges, applied to top submissions.
 
@@ -11,11 +11,11 @@ FDEBench is a 2-tier evaluation framework. **Tier 1** (your public leaderboard s
 
 ## How the public set relates to your leaderboard score
 
-The public set in `py/data/task{1,2,3}/public_eval_50.json` is **50 items per task** — a stratified sample of the hidden set. We sample proportionally on `(difficulty × primary class)` so per-field marginal distributions match the hidden set within total-variation distance ≤ 0.05.
+The public set in `py/data/task{1,2,3}/public_eval_50.json` is **50 items per task**, a stratified sample of the hidden set. We sample proportionally on `(difficulty × primary class)` so per-field marginal distributions match the hidden set within total-variation distance ≤ 0.05.
 
 **Treat the public set as a calibration sanity-check, not a leaderboard predictor.** At N=50, sampling noise alone is roughly ±10–13 percentage points on most dimensions. A 2-point public-score change is noise; a 10-point change probably means something real. The leaderboard runs on the full hidden set.
 
-The public gold deliberately omits the `difficulty` and `adversarial_subtype` fields — see [Robustness](#robustness--30-of-each-task) below.
+The public gold deliberately omits the `difficulty` and `adversarial_subtype` fields. See [Robustness](#robustness--30-of-each-task) below.
 
 ---
 
@@ -36,7 +36,7 @@ The public gold deliberately omits the `difficulty` and `adversarial_subtype` fi
   FDEBench = mean(task1_score, task2_score, task3_score)
 ```
 
-Each task gets its own composite. Your final FDEBench score is the **mean of all 3 task scores** — rewarding consistency across all endpoints.
+Each task gets its own composite. Your final FDEBench score is the **mean of all 3 task scores**, which rewards consistency across all endpoints.
 
 ---
 
@@ -44,7 +44,7 @@ Each task gets its own composite. Your final FDEBench score is the **mean of all
 
 How accurate are your API responses? Each task is scored independently using deterministic F1 metrics against hidden gold data.
 
-### Task 1 — Space Signal Triage
+### Task 1: Space Signal Triage
 
 Classify deep-space signals: category, priority, routing, missing info, and escalation.
 
@@ -58,7 +58,7 @@ Classify deep-space signals: category, priority, routing, missing info, and esca
 | Missing Info F1 | 17% | Mean per-ticket set F1 across 16 constrained terms |
 | Escalation F1 | 11% | Binary F1 |
 
-### Task 2 — Document Extraction
+### Task 2: Document Extraction
 
 Extract structured data from document images (receipts, invoices, forms, charts) using OCR. Each document includes a JSON schema defining expected output fields.
 
@@ -69,7 +69,7 @@ Extract structured data from document images (receipts, invoices, forms, charts)
 | Information accuracy | 70% | Fuzzy token F1 with value normalization |
 | Text fidelity | 30% | Exact character-level field match |
 
-### Task 3 — Workflow Orchestration
+### Task 3: Workflow Orchestration
 
 Multi-step planning and execution: understand the goal, select tools, execute in sequence, and recover from errors while respecting constraints.
 
@@ -101,9 +101,9 @@ P95 latency is normalized linearly, with **per-task thresholds** that reflect ea
 
 | Task | Best (1.0) | Worst (0.0) | Why |
 |------|-----------|------------|-----|
-| Triage | ≤ 500 ms | ≥ 5,000 ms | Text classification — fast |
-| Extract | ≤ 2,000 ms | ≥ 20,000 ms | Vision/OCR — inherently slower |
-| Orchestrate | ≤ 1,000 ms | ≥ 10,000 ms | Multi-step with tool calls |
+| Triage | ≤ 1,500 ms | ≥ 4,200 ms | Text classification, fast |
+| Extract | ≤ 7,100 ms | ≥ 19,000 ms | Vision/OCR, inherently slower |
+| Orchestrate | ≤ 1,500 ms | ≥ 8,000 ms | Multi-step with tool calls |
 
 ### Model cost tier (40%)
 
@@ -114,7 +114,7 @@ Based on the model name from your `X-Model-Name` response header:
 | Nano | 100% | gpt-5-nano, gpt-4.1-nano, phi-4, llama-4, qwen |
 | Mini | 90% | gpt-5-mini, gpt-4.1-mini, gpt-4o-mini, claude-haiku, deepseek-r1 |
 | Standard | 75% | gpt-5, gpt-4.1, gpt-4o, claude-sonnet, o4-mini |
-| Full | 50% | gpt-5-pro, gpt-4-turbo, o3, grok-4 |
+| Full | 50% | gpt-5-pro, o3, grok-4 |
 | Premium | 30% | o1, o3-pro, claude-opus, gpt-4.5 |
 
 > **Tip:** Choose smaller models when accuracy allows, batch where possible, and cache repeated lookups to reduce both latency and cost.
@@ -129,19 +129,19 @@ Can your API handle the unexpected?
 robustness = 0.60 × adversarial_accuracy + 0.40 × api_resilience
 ```
 
-> **About the adversarial subset.** Roughly 30% of the hidden set for each task is adversarial — harder cases designed to test robustness. Concretely:
+> **About the adversarial subset.** Roughly 30% of the hidden set for each task is adversarial: harder cases designed to test robustness. Concretely:
 >
-> * **T1 — Triage:** missing or contradictory context, ambiguous channels, signal buried in long noisy threads.
-> * **T2 — Extract:** deeply nested JSON schemas or coupled-field shapes (e.g. arrays of objects with cross-field constraints).
-> * **T3 — Orchestrate:** longer step counts, stricter compliance / ordering constraints, distractor tools.
+> * **T1, Triage:** missing or contradictory context, ambiguous channels, signal buried in long noisy threads.
+> * **T2, Extract:** deeply nested JSON schemas or coupled-field shapes (e.g. arrays of objects with cross-field constraints).
+> * **T3, Orchestrate:** longer step counts, stricter compliance / ordering constraints, distractor tools.
 >
-> The `difficulty` label is **internal** — your public gold does not carry it. We do this so candidates optimise for uniform robustness rather than gating engineering effort on a label they can read at submission time.
+> The `difficulty` label is **internal**: your public gold does not carry it. We do this so candidates optimise for uniform robustness rather than gating engineering effort on a label they can read at submission time.
 >
 > Each task's robustness sub-score is normalised by per-task adversarial fraction before being summed into the task score, so all 3 tasks contribute equally to the FDEBench aggregate regardless of their internal hard/easy mix. Optimising one task's robustness will not "steal" weight from the other tasks.
 
 ### Adversarial accuracy (60%)
 
-Your resolution score is recalculated on the adversarial subset described above. Same scoring dimensions, tougher inputs. Because the public gold doesn't carry `difficulty`, you cannot self-score adversarial accuracy locally — only your aggregate resolution.
+Your resolution score is recalculated on the adversarial subset described above. Same scoring dimensions, tougher inputs. Because the public gold doesn't carry `difficulty`, you cannot self-score adversarial accuracy locally; only your aggregate resolution.
 
 ### API resilience (40%)
 
@@ -159,7 +159,7 @@ api_resilience = probes_passed / 7
 | 50 KB payload | Oversized body | 413 or clean rejection |
 | Wrong content-type | `Content-Type: text/plain` | 415 or valid JSON response |
 | Concurrent burst | 20 requests in 500 ms | ≥ 18 valid responses |
-| Cold start | Request after 60 s idle | Valid response |
+| Cold start | Request after 5 s idle | Valid response |
 
 > **Tip:** Validate inputs early and return proper HTTP status codes (400, 422, 413, 415). Make sure your API handles concurrent requests and recovers from cold starts. These are low-effort, high-impact wins.
 
@@ -169,7 +169,9 @@ api_resilience = probes_passed / 7
 
 Applied to top submissions. AI-assisted agents review your **repository code**, not your API responses. Scores are visible only to judges and help differentiate finalists with similar Tier 1 scores.
 
-### Code Quality · 35%
+Four agents run in parallel, each contributing **25%** of the engineering total.
+
+### Code Quality · 25%
 
 | Dimension | Weight |
 |-----------|--------|
@@ -179,7 +181,7 @@ Applied to top submissions. AI-assisted agents review your **repository code**, 
 | Testing | 25% |
 | Readability | 10% |
 
-### Architecture · 40%
+### Architecture Design · 25%
 
 | Dimension | Weight |
 |-----------|--------|
@@ -188,6 +190,15 @@ Applied to top submissions. AI-assisted agents review your **repository code**, 
 | API design | 20% |
 | Trade-off reasoning | 15% |
 | Scalability thinking | 10% |
+
+### AI Problem Solving · 25%
+
+| Dimension | Weight |
+|-----------|--------|
+| Prompt engineering | 30% |
+| Evaluation methodology | 30% |
+| Model selection & cost awareness | 25% |
+| Iteration discipline | 15% |
 
 ### Engineering Maturity · 25%
 
@@ -198,7 +209,7 @@ Applied to top submissions. AI-assisted agents review your **repository code**, 
 | Observability | 20% |
 | Security awareness | 25% |
 
-> **Tip:** Write clean, well-structured code from the start. Include a proper README, architecture docs, and tests. Keep secrets in environment variables, not hardcoded. Add basic logging and tracing. Judges can see everything in your repo — make it count.
+> **Tip:** Write clean, well-structured code from the start. Include a proper README, architecture docs, and tests. Keep secrets in environment variables, not hardcoded. Add basic logging and tracing. Judges can see everything in your repo, so make it count.
 
 ---
 
@@ -223,5 +234,5 @@ A few platform behaviours are not visible from the API surface and will silently
 * **Eval items are shuffled per submission.** The platform reorders inputs deterministically per submission (keyed off your submission id). Join your responses on `request_id_key`, not on position. Don't rely on stable input order across submissions or across retries of the same submission.
 * **You don't get per-dimension or per-item feedback.** After a submission completes you'll see your aggregate task scores and FDEBench composite. You will **not** see per-dimension scores, per-item feedback, agent reasoning traces, or per-probe pass/fail. Use your local `run_eval.py` against `public_eval_50.json` for per-dimension introspection.
 * **The `mock_service_url` host in T3 inputs is rewritten at submission time.** The public gold ships `https://example.invalid/scenario/<task_id>` as a deliberate placeholder; the platform substitutes the real per-task scenario URL when your `/orchestrate` endpoint is called. Don't hard-code the placeholder host.
-* **The platform retries `429` and `5xx` twice with `Retry-After` honoring, then gives up.** The caller waits for the value of the `Retry-After` (or `Retry-After-Ms`) header you return, capped at 10 s — falling back to exponential backoff (1 s, 2 s) when the header is absent. After the second retry the item counts towards `items_errored` and contributes 0.0 to every dimension. *This is a courtesy, not a safety net*: if your service depends on AOAI / a vector store / a downstream tool, you must wrap those calls in your own retry-with-backoff that honors `Retry-After`. The OpenAI / Anthropic SDKs do not do this for AOAI throttling by default. There is no scoring distinction between "I returned 5xx three times" and "I returned a wrong answer" — both are zero credit.
+* **The platform retries `429` and `5xx` twice with `Retry-After` honoring, then gives up.** The caller waits for the value of the `Retry-After` (or `Retry-After-Ms`) header you return, capped at 10 s, falling back to exponential backoff (1 s, 2 s) when the header is absent. After the second retry the item counts towards `items_errored` and contributes 0.0 to every dimension. *This is a courtesy, not a safety net*: if your service depends on AOAI / a vector store / a downstream tool, you must wrap those calls in your own retry-with-backoff that honors `Retry-After`. The OpenAI / Anthropic SDKs do not do this for AOAI throttling by default. There is no scoring distinction between "I returned 5xx three times" and "I returned a wrong answer"; both are zero credit.
 * **Per-call timeout is 60 s.** Make your handler's per-attempt timeout shorter (e.g. 25–30 s) so two retries fit inside the platform's deadline. A handler that waits 50 s before its first retry will get killed by the platform before it can recover.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FDEBench Local Eval Harness — score your solution the same way the platform does.
+"""FDEBench Local Eval Harness: score your solution the same way the platform does.
 
 Uses the same fdebenchkit library that powers the production scorer.
 Runs all 3 tasks (or a single task) against your deployed endpoint and
@@ -55,7 +55,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ── Data paths (relative to this script) ─────────────────────────────
+# Data paths (relative to this script)
 _DATA_DIR = _REPO_ROOT / "data"
 
 _TASK_DATASETS: dict[str, dict[str, Path]] = {
@@ -103,7 +103,7 @@ def _start_mock_service() -> subprocess.Popen | None:
     running or mock data is unavailable.
     """
     if not _MOCK_RESPONSES_PATH.exists():
-        logger.warning("Mock responses not found: %s — Task 3 tool calls will fail", _MOCK_RESPONSES_PATH)
+        logger.warning("Mock responses not found: %s, Task 3 tool calls will fail", _MOCK_RESPONSES_PATH)
         return None
 
     if _port_in_use(_MOCK_SERVICE_PORT):
@@ -122,7 +122,7 @@ def _start_mock_service() -> subprocess.Popen | None:
             logger.info("Mock tool service ready")
             return proc
         time.sleep(0.1)
-    logger.warning("Mock tool service did not start within 5s — Task 3 tool calls may fail")
+    logger.warning("Mock tool service did not start within 5s, Task 3 tool calls may fail")
     return proc
 
 
@@ -336,7 +336,7 @@ def _print_report(result: ScoringResult) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="FDEBench Local Eval Harness — score your solution locally.",
+        description="FDEBench Local Eval Harness: score your solution locally.",
     )
     parser.add_argument(
         "--endpoint",

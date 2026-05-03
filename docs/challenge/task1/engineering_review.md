@@ -1,6 +1,6 @@
-# Task 1 — Engineering Review
+# Task 1: Engineering Review
 
-> 📺 **Watch — [V2: The customer's architect on what 'good' looks like](https://youtu.be/9crDxcGLzYA)**
+> 📺 **Watch [V2: The customer's architect on what 'good' looks like](https://youtu.be/9crDxcGLzYA)**
 >
 > The contract shape, error-handling expectations, observability headers,
 > and code-structure signals judges look for are described in V2.

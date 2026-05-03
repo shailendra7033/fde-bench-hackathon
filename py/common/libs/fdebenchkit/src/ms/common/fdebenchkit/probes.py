@@ -5,13 +5,13 @@ how it handles malformed input, edge cases, and load. Each probe is
 binary pass/fail.
 
 Probes (from docs/context/10-fdebench.md):
-  1. Malformed JSON        — HTTP 400 (not 500, not hang)
-  2. Empty body            — HTTP 400 or 422
-  3. Missing required fields — HTTP 400/422 or valid response with defaults
-  4. Huge payload (50KB)   — HTTP 413, valid response, or clean rejection (not crash)
-  5. Wrong content type    — HTTP 415 or valid JSON response
-  6. Concurrent burst      — 20 requests in 500ms, ≥18 return valid
-  7. Slow follow-up        — Normal request after 60s idle, returns valid
+  1. Malformed JSON          : HTTP 400 (not 500, not hang)
+  2. Empty body              : HTTP 400 or 422
+  3. Missing required fields : HTTP 400/422 or valid response with defaults
+  4. Huge payload (50KB)     : HTTP 413, valid response, or clean rejection (not crash)
+  5. Wrong content type      : HTTP 415 or valid JSON response
+  6. Concurrent burst        : 20 requests in 500ms, ≥18 return valid
+  7. Slow follow-up          : Normal request after 60s idle, returns valid
 
 api_resilience = (probes_passed / 7) × 100
 """
@@ -25,7 +25,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# Probe timeout — generous to avoid false negatives from slow networks
+# Probe timeout: generous to avoid false negatives from slow networks
 _PROBE_TIMEOUT = 15.0
 
 # Concurrent burst config

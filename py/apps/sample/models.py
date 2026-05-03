@@ -13,7 +13,7 @@ from pydantic import EmailStr
 
 from ms.common.models.base import FrozenBaseModel
 
-# ── Task 1: Signal Triage ────────────────────────────────────────────
+# Task 1: Signal Triage
 
 
 class Reporter(FrozenBaseModel):
@@ -83,7 +83,7 @@ class TriageResponse(FrozenBaseModel):
     remediation_steps: list[str]
 
 
-# ── Task 2: Document Extraction ──────────────────────────────────────
+# Task 2: Document Extraction
 
 
 class ExtractRequest(FrozenBaseModel):
@@ -94,22 +94,22 @@ class ExtractRequest(FrozenBaseModel):
 
 
 class ExtractResponse(FrozenBaseModel):
-    """Generic extraction response — fields vary per document.
+    """Generic extraction response. Fields vary per document.
 
     The scorer compares your output field-by-field against the gold data.
-    Return document_id plus whatever fields the json_schema specifies.
+    Return ``document_id`` plus whatever fields ``json_schema`` specifies.
     Extra fields are ignored. Missing fields score 0.
     """
 
     document_id: str
-    # All other fields are dynamic — use model_extra or return a dict.
-    # The sample stub returns just document_id. A real implementation
-    # would parse json_schema and return matching fields.
+    # All other fields are dynamic. Use model_extra or return a dict.
+    # The sample stub only returns document_id. A real implementation
+    # parses json_schema and returns matching fields.
 
     model_config = ConfigDict(extra="allow")
 
 
-# ── Task 3: Workflow Orchestration ───────────────────────────────────
+# Task 3: Workflow Orchestration
 
 
 class ToolParameter(FrozenBaseModel):

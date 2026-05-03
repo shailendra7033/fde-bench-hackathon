@@ -107,14 +107,14 @@ Scoring code: [py/common/libs/fdebenchkit/](py/common/libs/fdebenchkit/).
 
 ### Tier 2: LLM-as-judge
 
-Judges only (not public). Four agents read your repository and score engineering quality. These scores help judges differentiate finalists with similar Tier 1 scores.
+Judges only (not public). Four agents read your repository and score engineering quality, weighted equally. These scores help judges differentiate finalists with similar Tier 1 scores.
 
 | Agent | Weight | Focus |
 |-------|--------|-------|
 | Code Quality | 25% | Structure, types, error handling, testing, readability |
-| Architecture Design | 30% | AI pipeline, decomposition, API design, tradeoff reasoning |
+| Architecture Design | 25% | AI pipeline, decomposition, API design, tradeoff reasoning |
 | AI Problem Solving | 25% | Prompt engineering, evaluation methodology, model and cost awareness |
-| Engineering Maturity | 20% | Deployment readiness, config and secrets, observability, security |
+| Engineering Maturity | 25% | Deployment readiness, config and secrets, observability, security |
 
 Full scoring details: [docs/challenge/README.md](docs/challenge/README.md).
 

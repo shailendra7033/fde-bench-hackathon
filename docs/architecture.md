@@ -8,20 +8,20 @@
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/health` | GET | Health check — returns 200 if the service is alive |
+| `/health` | GET | Health check. Returns 200 if the service is alive |
 | `/triage` | POST | Task 1: Classify a spacecraft signal across 5 dimensions |
 | `/extract` | POST | Task 2: Extract structured data from a document image |
 | `/orchestrate` | POST | Task 3: Plan and execute a multi-step workflow |
 
-## Task 1: Signal Triage — AI Pipeline
+## Task 1 (Signal Triage): AI pipeline
 
 <!-- How does the triage logic work? What model, what prompt strategy? Tool calling or content parsing? How is the system prompt structured? -->
 
-## Task 2: Document Extraction — AI Pipeline
+## Task 2 (Document Extraction): AI pipeline
 
 <!-- How does extraction work? What vision model do you use? How do you handle the per-document json_schema? What normalization steps run after the LLM call? -->
 
-## Task 3: Workflow Orchestration — AI Pipeline
+## Task 3 (Workflow Orchestration): AI pipeline
 
 <!-- How does the planner work? Single upfront plan or iterative re-planning? How do you handle tool failures? Parallel vs. sequential execution? -->
 

@@ -1,6 +1,6 @@
-# Task 1 — Routing Guide
+# Task 1: Routing Guide
 
-> 📺 **Watch — [V1: Cmdr. Kapoor on priority, escalation, and judgment](https://youtu.be/yLGHRmZPzu0)**
+> 📺 **Watch [V1: Cmdr. Kapoor on priority, escalation, and judgment](https://youtu.be/yLGHRmZPzu0)**
 >
 > Priority definitions (P1–P4), the override rule for hull/atmosphere/containment,
 > and when to escalate are explained in the video. The valid label strings

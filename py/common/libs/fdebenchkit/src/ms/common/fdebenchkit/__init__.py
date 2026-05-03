@@ -1,5 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
-"""FDEBench Tier 1 scoring library — participant copy.
+"""FDEBench Tier 1 scoring library (participant copy).
 
 Re-exports the scoring contract types and the resolution-result
 validator so callers can write::

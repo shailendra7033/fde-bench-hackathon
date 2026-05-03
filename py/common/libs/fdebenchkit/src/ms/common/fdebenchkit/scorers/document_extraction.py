@@ -1,17 +1,17 @@
 # Copyright (c) Microsoft. All rights reserved.
-"""Task 2 scorer — OCR Document Extraction (hybrid information + fidelity).
+"""Task 2 scorer: OCR Document Extraction (hybrid information + fidelity).
 
 Evaluates structured data extraction from document images against human-verified
 gold data from the Omni OCR Benchmark. Uses a two-dimensional scoring approach:
 
-**Information Accuracy (70%)** — Did the model extract the *right* data?
+**Information Accuracy (70%)**: Did the model extract the *right* data?
     - Strings  → token F1 after value normalization (strips $, commas, %, etc.)
     - Numbers  → exact match with 1% relative tolerance
     - Bools    → exact match
     - Lists    → soft set F1 with fuzzy element alignment
     - Dicts    → recursive field-mean
 
-**Text Fidelity (30%)** — Did the model preserve *exact* formatting?
+**Text Fidelity (30%)**: Did the model preserve *exact* formatting?
     - Strings  → exact match after whitespace/case normalization only
     - Numbers  → exact match (same as information)
     - Bools    → exact match (same as information)
@@ -39,7 +39,7 @@ from ms.common.fdebenchkit.scorers._utils import token_f1
 
 logger = logging.getLogger(__name__)
 
-# ── Dimension weights ─────────────────────────────────────────────────
+# Dimension weights
 
 WEIGHT_INFORMATION = 0.7
 WEIGHT_FIDELITY = 0.3
@@ -53,7 +53,7 @@ DIMENSION_WEIGHTS: dict[str, float] = {
 Score = tuple[float, float]  # (information_accuracy, text_fidelity)
 
 
-# ── Value normalization for information matching ──────────────────────
+# Value normalization for information matching
 
 _CURRENCY_RE = re.compile(r"[$€£¥₹]")
 _NUM_COMMA_RE = re.compile(r"(\d),(\d)")
@@ -75,7 +75,7 @@ def _normalize_for_information(text: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
-# ── Helpers ───────────────────────────────────────────────────────────
+# Helpers
 
 
 def _harmonic_mean(a: float, b: float) -> float:
@@ -86,7 +86,7 @@ def _harmonic_mean(a: float, b: float) -> float:
 
 
 def _score_number(predicted: Any, gold: float | int) -> float:
-    """Score a numeric value — shared by both dimensions."""
+    """Score a numeric value (shared by both dimensions)."""
     try:
         pred_num = float(predicted)
         gold_num = float(gold)
@@ -99,14 +99,14 @@ def _score_number(predicted: Any, gold: float | int) -> float:
         return 0.0
 
 
-# ── Core recursive scorer (dual-dimension) ────────────────────────────
+# Core recursive scorer (dual-dimension)
 
 
 def score_value(predicted: Any, gold: Any) -> Score:
     """Score a single value recursively.
 
     Returns:
-        (information_accuracy, text_fidelity) — each in [0.0, 1.0].
+        (information_accuracy, text_fidelity), each in [0.0, 1.0].
     """
     # Both null/None → perfect on both dimensions
     if gold is None and predicted is None:
@@ -116,7 +116,7 @@ def score_value(predicted: Any, gold: Any) -> Score:
     if gold is None or predicted is None:
         return (0.0, 0.0)
 
-    # ── String ────────────────────────────────────────────────────
+    # String
     if isinstance(gold, str):
         pred_str = str(predicted)
         # Information: token F1 on aggressively normalized text
@@ -128,36 +128,36 @@ def score_value(predicted: Any, gold: Any) -> Score:
         fidelity = 1.0 if normalize_text(pred_str) == normalize_text(gold) else 0.0
         return (info, fidelity)
 
-    # ── Number (int/float, not bool) ──────────────────────────────
+    # Number (int/float, not bool)
     if isinstance(gold, (int, float)) and not isinstance(gold, bool):
         match = _score_number(predicted, gold)
         return (match, match)
 
-    # ── Boolean ───────────────────────────────────────────────────
+    # Boolean
     if isinstance(gold, bool):
         match = 1.0 if predicted == gold else 0.0
         return (match, match)
 
-    # ── List ──────────────────────────────────────────────────────
+    # List
     if isinstance(gold, list):
         return _score_list(
             predicted if isinstance(predicted, list) else [],
             gold,
         )
 
-    # ── Dict ──────────────────────────────────────────────────────
+    # Dict
     if isinstance(gold, dict):
         return score_document(
             predicted if isinstance(predicted, dict) else {},
             gold,
         )
 
-    # ── Fallback: coerce to string ────────────────────────────────
+    # Fallback: coerce to string
     return score_value(str(predicted), str(gold))
 
 
 def _score_list(predicted: list[Any], gold: list[Any]) -> Score:
-    """Score two lists — dual dimension.
+    """Score two lists (dual dimension).
 
     String lists use efficient set-based helpers.
     Object/mixed lists use best-match alignment based on the combined score.
@@ -167,7 +167,7 @@ def _score_list(predicted: list[Any], gold: list[Any]) -> Score:
     if not gold or not predicted:
         return (0.0, 0.0)
 
-    # ── Fast path for primitive string lists ──────────────────────
+    # Fast path for primitive string lists
     if all(isinstance(g, str) for g in gold) and all(isinstance(p, str) for p in predicted):
         # Information: fuzzy set F1 on aggressively normalized items
         info_pred = {_normalize_for_information(str(p)) for p in predicted}
@@ -179,7 +179,7 @@ def _score_list(predicted: list[Any], gold: list[Any]) -> Score:
         fidelity = set_f1(fidelity_pred, fidelity_gold)
         return (info, fidelity)
 
-    # ── Object/mixed lists: best-match alignment ─────────────────
+    # Object/mixed lists: best-match alignment
     # Use combined weighted score for alignment, then report both dims.
     def _best_match(anchor: Any, candidates: list[Any]) -> Score:
         best_combined = -1.0
@@ -249,14 +249,14 @@ def score_document(predicted: dict[str, Any], gold: dict[str, Any]) -> Score:
     )
 
 
-# ── Scorer interface matching FDEBench convention ─────────────────────
+# Scorer interface matching FDEBench convention
 
 
 def score_submission(
     candidate_responses: Sequence[dict[str, Any]],
     gold_answers: Sequence[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Score a full Task 2 submission — FDEBench-compatible interface.
+    """Score a full Task 2 submission (FDEBench-compatible interface).
 
     Returns:
         resolution: 0-100 weighted composite (0.7·info + 0.3·fidelity)

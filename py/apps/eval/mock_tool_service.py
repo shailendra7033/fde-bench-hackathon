@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="FDEBench Mock Tool Service (local)", version="1.0.0") if _FASTAPI_AVAILABLE else None  # type: ignore[assignment]
 
-# ── State ─────────────────────────────────────────────────────────────
+# State
 # { "TASK-0001": { "crm_search": [{call_index, status_code, response_body}, ...] } }
 _MOCK_DATA: dict[str, dict[str, list[dict[str, Any]]]] = {}
 # { task_id: { tool_name: call_count } }
@@ -71,7 +71,7 @@ def _resolve_task_id(session_task_id: str) -> str:
     return session_task_id
 
 
-# ── Routes (only defined when FastAPI is available) ───────────────────
+# Routes (only defined when FastAPI is available)
 
 if _FASTAPI_AVAILABLE:
 
@@ -131,7 +131,7 @@ if _FASTAPI_AVAILABLE:
         return {"status": "reset", "session": prefix, "keys_removed": str(len(to_remove))}
 
 
-# ── Startup & CLI ─────────────────────────────────────────────────────
+# Startup & CLI
 
 _DEFAULT_MOCK_PATH = (
     Path(__file__).resolve().parent.parent.parent / "data" / "task3" / "public_eval_50_mock_responses.json"
@@ -151,7 +151,7 @@ def start(port: int = 9090, mock_path: Path | None = None) -> None:
     path = mock_path or _DEFAULT_MOCK_PATH
     loaded = load_responses(path)
     if loaded == 0:
-        logger.error("No mock responses loaded from %s — exiting", path)
+        logger.error("No mock responses loaded from %s, exiting", path)
         sys.exit(1)
     logger.info("Mock tool service: %d scenarios from %s", loaded, path.name)
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")

@@ -33,7 +33,7 @@ class TaskDefinition:
     # Latency scoring is a 50/50 blend of normalized P50 and P95 against
     # the four per-task thresholds below. Calibration rationale:
     #   * P50 best  = budget-derived target for a well-engineered solution
-    #     (one LLM call, mini model, same region, warm pool — see
+    #     (one LLM call, mini model, same region, warm pool; see
     #     ``learnings/l1improvements.md`` §2.2.3).
     #   * P50 worst = 4 × P50 best (replaces the prior 10× ramp that put
     #     realistic submissions on the flat tail).
@@ -44,7 +44,7 @@ class TaskDefinition:
     #     of the ramp). Source: ``analysis/out/tasks_anon.csv``
     #     (snapshot 2026-04-26).
     #
-    # Defaults below match Task 1 (Triage) — sub-classes override them.
+    # Defaults below match Task 1 (Triage); sub-classes override them.
     latency_p50_best_ms: float = 400.0
     latency_p50_worst_ms: float = 1600.0
     latency_p95_best_ms: float = 1200.0
@@ -129,7 +129,7 @@ TASK_DEFINITIONS: dict[str, TaskDefinition] = {
         #   min P95 = 7 107 ms  → P95 best 7 100 (fastest known earns ~1.0)
         #   P75 P95 = 18 900 ms → P95 worst 19 000 (slowest quartile in ramp).
         # P95 best was previously the budget number (5 500 ms), but no
-        # cohort-1 submission landed below 7 107 ms — grounding in measured
+        # cohort-1 submission landed below 7 107 ms; grounding in measured
         # data is fairer than aspirational vision-mini budget math.
         # Revisit after first cohort-2 calibration run (D-7).
         latency_p50_best_ms=2400.0,

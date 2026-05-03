@@ -3,14 +3,14 @@
 ## How to submit
 
 1. **Fork** this repo (your fork must be **public**)
-2. **Build** your solution — all 3 task endpoints + health check
+2. **Build** your solution: all 3 task endpoints + health check
 3. **Deploy** somewhere callable via HTTPS (not localhost)
 4. **Test** with the eval harness: run `python run_eval.py --endpoint http://localhost:8000` from `py/apps/eval/`
 5. **Write** your three docs: `docs/architecture.md`, `docs/methodology.md`, `docs/evals.md`
 6. **Push** everything to your public fork
 7. **Submit** at **[aka.ms/fde/hackathon](https://aka.ms/fde/hackaton)**
 
-Think of submission like a deployment rollout — can the endpoints be called reliably, is the code legible, do the docs show you understood the problem?
+Think of submission like a deployment rollout: can the endpoints be called reliably, is the code legible, do the docs show you understood the problem?
 
 ## Required files
 
@@ -40,17 +40,17 @@ Your deployed API is called with a hidden eval set per task (T1: ~1,000, T2: ~50
 
 Per-task scores are averaged into a FDEBench composite (0-100).
 
-FDEBench rewards consistency — solid across all three tasks usually beats amazing on one and weak on the others.
+FDEBench rewards consistency: solid across all three tasks usually beats amazing on one and weak on the others.
 
 #### What you get back from the platform
 
 After a submission completes you'll see your aggregate task scores and FDEBench composite. You will **not** see per-dimension scores, per-item feedback, agent reasoning traces, or per-probe pass/fail. Use the local runner at `py/apps/eval/run_eval.py` against `public_eval_50.json` for per-dimension introspection.
 
-Eval items are also shuffled per submission — join responses on `request_id_key`, not on position. See [How Your Solution Is Scored — Platform behaviour you should know](../eval/fdebench.md#platform-behaviour-you-should-know) for the full list.
+Eval items are also shuffled per submission, so join responses on `request_id_key`, not on position. See [How Your Solution Is Scored, Platform behaviour you should know](../eval/fdebench.md#platform-behaviour-you-should-know) for the full list.
 
 ### Tier 2: LLM-as-judge (judges only)
 
-Four agents read your repo. Scores are **not public** — they inform finalist selection.
+Four agents read your repo. Scores are **not public**; they inform finalist selection.
 
 | Agent | Weight | Focus |
 |-------|--------|-------|
@@ -104,7 +104,7 @@ If you use the local runner at `py/apps/eval/run_eval.py` to gather your numbers
 - [ ] Actually calls the mock tool endpoints provided in `available_tools`
 - [ ] Returns execution trace with `steps_executed`, tool calls, parameters, results
 - [ ] Reports `constraints_satisfied` indicating which constraints were respected
-- [ ] Handles tool failures gracefully (retry, skip, or report — don't crash)
+- [ ] Handles tool failures gracefully (retry, skip, or report; don't crash)
 
 ### API Resilience
 
@@ -115,7 +115,7 @@ If you use the local runner at `py/apps/eval/run_eval.py` to gather your numbers
 
 ### Efficiency headers (recommended)
 
-- [ ] Responses include `X-Model-Name` header (required for cost scoring — model tier determines your cost score)
+- [ ] Responses include `X-Model-Name` header (required for cost scoring; model tier determines your cost score)
 
 ### Documentation and Repo
 

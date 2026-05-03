@@ -1,4 +1,4 @@
-# Task 2 — Customer Brief
+# Task 2: Customer Brief
 
 The customer has document images (receipts, invoices, financial statements, medical forms) that are only useful once they're structured data. Manual extraction is slow, inconsistent, and doesn't scale.
 

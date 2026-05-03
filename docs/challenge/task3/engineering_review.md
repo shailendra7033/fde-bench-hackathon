@@ -1,4 +1,4 @@
-# Task 3 — Engineering Review
+# Task 3: Engineering Review
 
 What judges look for in your orchestration code. Tier 2 doesn't affect the leaderboard, but it's how finalists get picked.
 

@@ -1,10 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
-"""
-Tests for ExceptionHandlerMiddleware.
-
-This module contains comprehensive tests for the ExceptionHandlerMiddleware class,
-covering both happy path and edge case scenarios for the dispatch method.
-"""
+"""Tests for ExceptionHandlerMiddleware: happy path and edge cases on dispatch."""
 
 from collections.abc import Awaitable
 from collections.abc import Callable

@@ -9,7 +9,7 @@ The built-in eval harness already measures latency per request. Run it to get yo
 ```bash
 cd py
 
-# Full eval — includes latency P95 and efficiency score
+# Full eval, includes latency P95 and efficiency score
 make eval
 
 # Single task
@@ -42,26 +42,26 @@ cat > /tmp/triage_payload.json << 'EOF'
 }
 EOF
 
-# Baseline — serial requests (check single-request latency)
+# Baseline: serial requests (check single-request latency)
 hey -n 10 -c 1 -m POST \
   -H "Content-Type: application/json" \
   -D /tmp/triage_payload.json \
   http://localhost:8000/triage
 
-# Concurrency test — 20 concurrent requests (matches the burst probe)
+# Concurrency test: 20 concurrent requests (matches the burst probe)
 hey -n 50 -c 20 -m POST \
   -H "Content-Type: application/json" \
   -D /tmp/triage_payload.json \
   http://localhost:8000/triage
 
-# Sustained load — 2 minutes at 5 req/s
+# Sustained load: 2 minutes at 5 req/s
 hey -z 120s -q 5 -c 5 -m POST \
   -H "Content-Type: application/json" \
   -D /tmp/triage_payload.json \
   http://localhost:8000/triage
 ```
 
-### Task 2 (Extract) — Inlined-Base64 Payload
+### Task 2 (Extract): inlined-base64 payload
 
 Your `/extract` always receives `content_format: "image_base64"`. The eval
 harness inlines images from `py/data/task2/images/` as base64 before POSTing,
@@ -85,14 +85,14 @@ with open('/tmp/extract_payload.json', 'w') as f:
 print(f'Payload size: {len(json.dumps(item))//1024} KB  ({len(img)//1024} KB raw image)')
 "
 
-# Serial baseline (extract is slow — vision model)
+# Serial baseline (extract is slow, vision model)
 hey -n 5 -c 1 -m POST \
   -H "Content-Type: application/json" \
   -D /tmp/extract_payload.json \
   http://localhost:8000/extract
 ```
 
-### Task 3 (Orchestrate) — Multi-Step with Mock Tools
+### Task 3 (Orchestrate): multi-step with mock tools
 
 Orchestration requests call external tool endpoints. Start the mock tool service first:
 
@@ -130,13 +130,13 @@ export API_URL=https://your-app.azurecontainerapps.io
 # Health check
 curl -s "$API_URL/health"
 
-# Cold start test — wait 60s, then hit it
+# Cold start test: wait 60s, then hit it
 sleep 60 && hey -n 1 -c 1 -m POST \
   -H "Content-Type: application/json" \
   -D /tmp/triage_payload.json \
   "$API_URL/triage"
 
-# Burst test — 20 concurrent (probe #6 threshold)
+# Burst test: 20 concurrent (probe #6 threshold)
 hey -n 20 -c 20 -m POST \
   -H "Content-Type: application/json" \
   -D /tmp/triage_payload.json \
@@ -151,7 +151,7 @@ python run_eval.py --endpoint "$API_URL"
 > `content_format: "image_base64"`. The shipped public set on disk uses
 > `content_format: "image_path"` so the JSON file stays small (~80 KB),
 > but `run_eval.py` inlines each PNG from `py/data/task2/images/` as
-> base64 before POSTing — your endpoint never sees the path form. The
+> base64 before POSTing, so your endpoint never sees the path form. The
 > platform's hidden-eval scoring does the same translation server-side
 > (downloading from blob storage and applying per-submission anti-
 > reconstruction perturbation, cohort-2 WS1.1) so the wire format is
@@ -167,8 +167,8 @@ python run_eval.py --endpoint "$API_URL"
 | P95 latency (triage) | < 2 s | Per-task scoring: 500 ms = 1.0, 5,000 ms = 0.0 |
 | P95 latency (extract) | < 10 s | Per-task scoring: 2,000 ms = 1.0, 20,000 ms = 0.0 |
 | P95 latency (orchestrate) | < 5 s | Per-task scoring: 1,000 ms = 1.0, 10,000 ms = 0.0 |
-| Concurrent burst (20 reqs) | ≥ 18 pass | Probe #6 — if you fail this, you lose ~6% robustness |
-| Cold start | < 15 s | Probe #7 — first request after idle must succeed |
+| Concurrent burst (20 reqs) | ≥ 18 pass | Probe #6: if you fail this, you lose ~6% robustness |
+| Cold start | < 15 s | Probe #7: first request after idle must succeed |
 | Error rate under load | < 5% | Errors reduce your resolution score |
 
 ## Common performance bottlenecks
@@ -197,8 +197,8 @@ cost_score: based on X-Model-Name header
   nano (gpt-4.1-nano)     → 1.0
   mini (gpt-4.1-mini)     → 0.9
   standard (gpt-4o)       → 0.75
-  full (gpt-4-turbo)      → 0.5
-  premium (o1, o3)        → 0.3
+  full (gpt-5-pro, o3)    → 0.5
+  premium (o1, o3-pro)    → 0.3
 ```
 
 A solution using `gpt-4.1-mini` with P95 at 1.5 s on triage scores:

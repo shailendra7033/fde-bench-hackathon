@@ -1,6 +1,6 @@
-# Task 1 — Customer Brief
+# Task 1: Customer Brief
 
-> 📺 **Watch first — [V1: Cmdr. Kapoor explains the problem](https://youtu.be/yLGHRmZPzu0)**
+> 📺 **Watch first [V1: Cmdr. Kapoor explains the problem](https://youtu.be/yLGHRmZPzu0)**
 >
 > The customer pain, signal channels, target metrics, and the unwritten rules
 > ("people say urgent about everything", quiet signals can be the real

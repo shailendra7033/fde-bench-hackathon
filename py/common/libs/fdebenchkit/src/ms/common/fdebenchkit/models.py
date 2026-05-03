@@ -1,5 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
-"""FDEBench data models — the scoring contract.
+"""FDEBench data models: the scoring contract.
 
 All task scorers must produce a ``TaskResolutionResult``.
 The Tier 1 framework computes ``Tier1Score`` from resolution +
@@ -35,7 +35,7 @@ class TaskResolutionResult(FrozenBaseModel):
 
 
 class EfficiencyResult(FrozenBaseModel):
-    """Efficiency score — task-agnostic, computed from HTTP metrics.
+    """Efficiency score (task-agnostic, computed from HTTP metrics).
 
     Formula:
       efficiency     = 0.60 × latency_score + 0.40 × cost_score
@@ -58,7 +58,7 @@ class EfficiencyResult(FrozenBaseModel):
 
 
 class RobustnessResult(FrozenBaseModel):
-    """Robustness score — task-agnostic.
+    """Robustness score (task-agnostic).
 
     Formula:
       robustness = 0.60 × adversarial_accuracy + 0.40 × api_resilience

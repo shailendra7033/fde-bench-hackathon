@@ -6,9 +6,9 @@ Given a goal, a set of tools, and a list of constraints, execute the workflow an
 
 Read the background:
 
-- [customer_brief.md](customer_brief.md) — what the customer needs
-- [execution_guide.md](execution_guide.md) — how to think about execution
-- [engineering_review.md](engineering_review.md) — what judges look for
+- [customer_brief.md](customer_brief.md): what the customer needs
+- [execution_guide.md](execution_guide.md): how to think about execution
+- [engineering_review.md](engineering_review.md): what judges look for
 
 ## Request contract
 
@@ -96,7 +96,7 @@ Your code should either:
 
 Both approaches work identically. The tool endpoints return JSON with realistic data (CRM records, inventory levels, email confirmations, etc.).
 
-### Calling tools — example
+### Calling tools: an example
 
 ```python
 # Option A: Use the tool's endpoint directly
@@ -142,14 +142,14 @@ curl -X POST http://localhost:9090/scenario/TASK-0015/crm_search -H "Content-Typ
 # → {"accounts": [{"account_id": "ACC-0015-0", ...}, ...]}
 ```
 
-> **Calibration only — your local public T3 score will be near 100%.**
+> **Calibration only: your local public T3 score will be near 100%.**
 >
 > The shipped `py/data/task3/public_eval_50_mock_responses.json` is the
 > deterministic answer key for the 50 public scenarios. The local mock
 > service replays it byte-for-byte, so a working orchestration loop will
 > almost always achieve a perfect score on the public set. **Use this to
 > verify your harness wiring (your endpoint speaks the contract, parses
-> the responses, satisfies basic constraints) — not as a leaderboard
+> the responses, satisfies basic constraints), not as a leaderboard
 > preview.**
 >
 > Hidden eval rewrites every `task_id` per submission via an opaque

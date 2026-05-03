@@ -1,4 +1,4 @@
-# Task 2 — Field Guide
+# Task 2: Field Guide
 
 This is a document-to-record task. Shape the output for machines, not humans.
 

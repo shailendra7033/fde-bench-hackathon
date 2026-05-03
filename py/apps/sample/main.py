@@ -1,16 +1,16 @@
-"""Minimal FDEBench starter — stub endpoints that pass schema validation.
+"""Minimal FDEBench starter: stub endpoints that pass schema validation.
 
 Run:
     cd py
-    make setup     # once — install deps
+    make setup     # one time, install deps
     make run       # start on :8000
 
 Score:
     make eval      # score all 3 tasks (in a second terminal)
 
-Every endpoint returns valid stub JSON. The eval harness will run
-end-to-end and show you the full scoring breakdown. Replace the stub
-logic with your LLM calls to improve the scores.
+Every endpoint returns valid stub JSON, so the eval harness runs end
+to end out of the box. Replace the stub logic with your own LLM calls
+to move the scores up.
 """
 
 from fastapi import FastAPI
@@ -26,7 +26,7 @@ from models import TriageResponse
 
 app = FastAPI(title="FDEBench Starter")
 
-MODEL_NAME = "gpt-4.1-mini"  # Change to whatever model you use
+MODEL_NAME = "gpt-4.1-mini"  # set this to whatever model you actually call
 
 
 def _add_headers(response: Response) -> None:
@@ -34,21 +34,16 @@ def _add_headers(response: Response) -> None:
     response.headers["X-Model-Name"] = MODEL_NAME
 
 
-# ── Health ───────────────────────────────────────────────────────────
-
-
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok"}
 
 
-# ── Task 1: Signal Triage ────────────────────────────────────────────
-
-
+# Task 1: Signal Triage
 @app.post("/triage")
 async def triage(req: TriageRequest, response: Response) -> TriageResponse:
     _add_headers(response)
-    # TODO: replace with LLM classification
+    # TODO: replace with LLM classification.
     return TriageResponse(
         ticket_id=req.ticket_id,
         category=Category.BRIEFING,
@@ -61,23 +56,19 @@ async def triage(req: TriageRequest, response: Response) -> TriageResponse:
     )
 
 
-# ── Task 2: Document Extraction ─────────────────────────────────────
-
-
+# Task 2: Document Extraction
 @app.post("/extract")
 async def extract(req: ExtractRequest, response: Response) -> ExtractResponse:
     _add_headers(response)
-    # TODO: replace with vision model extraction using req.json_schema
+    # TODO: replace with vision model extraction using req.json_schema.
     return ExtractResponse(document_id=req.document_id)
 
 
-# ── Task 3: Workflow Orchestration ───────────────────────────────────
-
-
+# Task 3: Workflow Orchestration
 @app.post("/orchestrate")
 async def orchestrate(req: OrchestrateRequest, response: Response) -> OrchestrateResponse:
     _add_headers(response)
-    # TODO: replace with LLM planning + tool execution
+    # TODO: replace with LLM planning + tool execution.
     return OrchestrateResponse(
         task_id=req.task_id,
         status="completed",

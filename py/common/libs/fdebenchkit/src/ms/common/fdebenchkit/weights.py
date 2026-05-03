@@ -1,5 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
-"""FDEBench scoring functions — Tier 1 composite and cross-task aggregation.
+"""FDEBench scoring functions: Tier 1 composite and cross-task aggregation.
 
 All formulas match ``docs/context/10-fdebench.md`` exactly.
 """
@@ -14,18 +14,18 @@ from ms.common.fdebenchkit.models import Tier1Score
 
 logger = logging.getLogger(__name__)
 
-# ── Tier 1 weights (from 10-fdebench.md) ─────────────────────────────
+# Tier 1 weights (from 10-fdebench.md)
 
 TIER1_WEIGHT_RESOLUTION = 0.50
 TIER1_WEIGHT_EFFICIENCY = 0.20
 TIER1_WEIGHT_ROBUSTNESS = 0.30
 
-# ── Efficiency sub-weights ────────────────────────────────────────────
+# Efficiency sub-weights
 
 EFFICIENCY_WEIGHT_LATENCY = 0.60
 EFFICIENCY_WEIGHT_COST = 0.40
 
-# ── Efficiency normalization thresholds ───────────────────────────────
+# Efficiency normalization thresholds
 #
 # Latency scoring is now a 50/50 blend of normalized P50 and P95 against
 # per-task thresholds (see ``tier1/registry.py`` for the per-task values).
@@ -35,25 +35,25 @@ EFFICIENCY_WEIGHT_COST = 0.40
 #
 # Calibration of the per-task thresholds:
 # * P50 ``best_ms`` = budget-derived target for a well-engineered solution
-#   (one LLM call, mini model, same-region, warm pool — see the budget
+#   (one LLM call, mini model, same-region, warm pool; see the budget
 #   decomposition in ``docs/experimentation/analysis/learnings/
 #   l1improvements.md`` §2.2.3).
 # * P50 ``worst_ms`` = 4 × ``best_ms`` (preserves a meaningful 0–1 range;
 #   the previous 10× ramp put realistic submissions on the flat tail).
 # * P95 ``best_ms`` = 3 × P50 ``best_ms`` (Azure OpenAI empirical
-#   tail-to-median ratio for chat-completions endpoints) — EXCEPT for
+#   tail-to-median ratio for chat-completions endpoints), EXCEPT for
 #   the vision/OCR Extract task, where the budget number was the least
 #   empirically grounded; that one is calibrated UP to a value reachable
 #   by the best cohort-1 submission. See ``registry.py`` for the
 #   per-task overrides.
-# * P95 ``worst_ms`` ≈ cohort-1 P75 of observed P95 latencies, rounded —
+# * P95 ``worst_ms`` ≈ cohort-1 P75 of observed P95 latencies, rounded;
 #   ensures the slowest quartile of cohort-1 submissions land in the
 #   discriminating part of the ramp rather than clamping to 0. Cohort-1
 #   P75 of P95: triage 4 240, extract 22 174, orchestrate 10 472 ms
 #   (n = 22 / 20 / 20 from ``docs/experimentation/analysis/out/
 #   tasks_anon.csv``, snapshot 2026-04-26).
 #
-# ── Safety-widening playbook ─────────────────────────────────────────
+# Safety-widening playbook
 # If cohort-2 week-1 data shows ``latency_score`` mean < 0.25 on any
 # task (= the cohort is being squeezed by an aspirational best_ms):
 #   1. Raise that task's ``latency_p95_best_ms`` to the new cohort's
@@ -75,20 +75,20 @@ LATENCY_P95_WORST_MS = 6000.0  # P95 > 6000ms → 0.0
 LATENCY_P50_WEIGHT = 0.5
 LATENCY_P95_WEIGHT = 0.5
 
-# Backwards-compatible aliases — value tracks P95 thresholds. Some external
+# Backwards-compatible aliases: value tracks P95 thresholds. Some external
 # code still imports ``LATENCY_BEST_MS`` / ``LATENCY_WORST_MS``; new code
 # should prefer the explicit P50/P95 constants above.
 LATENCY_BEST_MS = LATENCY_P95_BEST_MS
 LATENCY_WORST_MS = LATENCY_P95_WORST_MS
 
-# ── Robustness sub-weights ────────────────────────────────────────────
+# Robustness sub-weights
 
 ROBUSTNESS_WEIGHT_ADVERSARIAL = 0.60
 ROBUSTNESS_WEIGHT_API_RESILIENCE = 0.40
 
 
 # Note: Tier-2 (LLM-as-judge) weights live only in the platform copy of
-# fdebenchkit (``py/libs/fdebenchkit`` in the platform repo) — they
+# fdebenchkit (``py/libs/fdebenchkit`` in the platform repo); they
 # affect judge views, not the participant scoreboard, and importing the
 # tier2.rubric module here would pull in agentkit unnecessarily.
 
@@ -178,7 +178,7 @@ def compute_efficiency(
 
     ``latency_p50_ms`` defaults to ``latency_p95_ms`` when omitted, which
     preserves the legacy ``compute_efficiency(latency_p95_ms, cost_score)``
-    call shape — but new callers should pass both percentiles so the P50
+    call shape, but new callers should pass both percentiles so the P50
     sub-score reflects the typical request rather than the tail.
     """
     p50 = latency_p50_ms if latency_p50_ms is not None else latency_p95_ms

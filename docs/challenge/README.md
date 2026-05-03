@@ -12,12 +12,12 @@ Watch these before writing code. The videos cover the judgment calls:
 priority, escalation, what good engineering looks like, how scoring
 actually works. The markdown doesn't.
 
-### Task 1 — Signal Triage
+### Task 1: Signal Triage
 
 | | | |
 |:---:|:---:|:---:|
 | [<img src="https://img.youtube.com/vi/yLGHRmZPzu0/hqdefault.jpg" width="280">](https://youtu.be/yLGHRmZPzu0) | [<img src="https://img.youtube.com/vi/9crDxcGLzYA/hqdefault.jpg" width="280">](https://youtu.be/9crDxcGLzYA) | [<img src="https://img.youtube.com/vi/JnfGzRVc_xU/hqdefault.jpg" width="280">](https://youtu.be/JnfGzRVc_xU) |
-| **V1 — The Customer Problem**<br/>Cmdr. Kapoor | **V2 — What "Good" Looks Like**<br/>Customer Architect | **V3 — How FDEBench Scores You**<br/>Microsoft FDE |
+| **V1: The Customer Problem**<br/>Cmdr. Kapoor | **V2: What "Good" Looks Like**<br/>Customer Architect | **V3: How FDEBench Scores You**<br/>Microsoft FDE |
 
 > Briefings for Task 2 and Task 3 are coming. Until then, those task folders
 > stand on their own.
@@ -83,9 +83,9 @@ efficiency = (0.60 x latency_score + 0.40 x cost_score) x 100
 
 | Task | Best (1.0) | Worst (0.0) |
 |------|-----------|-------------|
-| Triage (`/triage`) | ≤ 500 ms | ≥ 5,000 ms |
-| Extract (`/extract`) | ≤ 2,000 ms | ≥ 20,000 ms |
-| Orchestrate (`/orchestrate`) | ≤ 1,000 ms | ≥ 10,000 ms |
+| Triage (`/triage`) | ≤ 1,500 ms | ≥ 4,200 ms |
+| Extract (`/extract`) | ≤ 7,100 ms | ≥ 19,000 ms |
+| Orchestrate (`/orchestrate`) | ≤ 1,500 ms | ≥ 8,000 ms |
 
 **Cost:** based on model tier from `X-Model-Name` response header. Return this header on every call.
 
@@ -94,7 +94,7 @@ efficiency = (0.60 x latency_score + 0.40 x cost_score) x 100
 | Tier 1 | 1.0 | gpt-4.1-nano, phi-4, llama-4 |
 | Tier 2 | 0.9 | gpt-4.1-mini, gpt-4o-mini, deepseek-r1 |
 | Tier 3 | 0.75 | gpt-4.1, gpt-4o, gpt-5, claude-sonnet, o4-mini |
-| Tier 4 | 0.5 | gpt-5-pro, o3, gpt-4-turbo |
+| Tier 4 | 0.5 | gpt-5-pro, o3, grok-4 |
 | Tier 5 | 0.3 | o1, o3-pro, claude-opus, gpt-4.5 |
 | Missing | 0.0 | No `X-Model-Name` header |
 
@@ -116,7 +116,7 @@ robustness = (0.60 x adversarial_accuracy + 0.40 x api_resilience) x 100
 | 4 | Huge payload | 50KB body | HTTP 413, valid response, or clean rejection (not crash) |
 | 5 | Wrong content type | `Content-Type: text/plain` | HTTP 415 or still returns valid JSON |
 | 6 | Concurrent burst | 20 requests in 500ms | >= 18 of 20 return valid responses |
-| 7 | Cold start | Normal request after 60s idle | Returns valid response |
+| 7 | Cold start | Normal request after 5s idle | Returns valid response |
 
 ### Tier 1 platform behavior
 
@@ -132,11 +132,11 @@ Your service needs to handle concurrent requests, validate inputs, and return st
 
 **What the platform does and does not return.** After a submission completes you'll see your aggregate task scores and the FDEBench composite. You will **not** see per-dimension scores, per-item feedback, agent reasoning traces, or per-probe pass/fail. Use the local runner at `py/apps/eval/run_eval.py` against `public_eval_50.json` for per-dimension introspection.
 
-**Eval items are shuffled per submission.** The platform reorders inputs deterministically per submission (keyed off your submission id). Join your responses on `request_id_key`, not on position. Don't rely on stable input order across submissions or across retries of the same submission. See [../eval/fdebench.md — Platform behaviour you should know](../eval/fdebench.md#platform-behaviour-you-should-know) for the full list.
+**Eval items are shuffled per submission.** The platform reorders inputs deterministically per submission (keyed off your submission id). Join your responses on `request_id_key`, not on position. Don't rely on stable input order across submissions or across retries of the same submission. See [../eval/fdebench.md, Platform behaviour you should know](../eval/fdebench.md#platform-behaviour-you-should-know) for the full list.
 
 ### Reliability is your responsibility
 
-Your endpoint owns the reliability of every dependency it calls (LLM API, database, vector store, internal tools). The platform-side caller does retry — twice, on `429` or `5xx`, honoring `Retry-After` — but those retries are a courtesy, not a safety net. After they exhaust, the item counts towards `items_errored` *and* contributes 0.0 to every dimension of that record. There is no scoring distinction between "I got a 500 from upstream" and "I returned the wrong answer".
+Your endpoint owns the reliability of every dependency it calls (LLM API, database, vector store, internal tools). The platform-side caller does retry (twice, on `429` or `5xx`, honoring `Retry-After`), but those retries are a courtesy, not a safety net. After they exhaust, the item counts towards `items_errored` *and* contributes 0.0 to every dimension of that record. There is no scoring distinction between "I got a 500 from upstream" and "I returned the wrong answer".
 
 Concretely:
 
@@ -152,21 +152,48 @@ What this means for your design:
 
 - **Wrap your LLM client in a retry loop that honors `Retry-After`.** The OpenAI / Anthropic SDKs do *not* do this by default for AOAI throttling. A 50-item Task 2 batch can hit 429 several times during a single scoring run.
 - **Set per-call timeouts shorter than the platform's 60 s.** Otherwise your retry budget collapses to one attempt before the platform gives up.
-- **Use circuit breakers on slow upstreams.** If your model deployment goes dark, fail fast with 503 instead of holding the connection — this lets the platform circuit-breaker abort cleanly and saves the rest of the batch.
+- **Use circuit breakers on slow upstreams.** If your model deployment goes dark, fail fast with 503 instead of holding the connection. This lets the platform circuit-breaker abort cleanly and saves the rest of the batch.
 - **Bound concurrency to your model TPM/RPM quota.** A burst of 25 parallel requests against a 60K-TPM deployment will throttle you instantly.
 
 The local eval harness at `py/apps/eval/run_eval.py` uses the same caller as the platform, so a clean local run is a useful proxy for production behavior.
 
+### HTTP semantics — when to return 200 vs 4xx
+
+The platform's caller treats **any non-200 response as `errored`** for that
+item: 0.0 across every Resolution dimension and a hit to your error rate.
+That includes responses you might *think* are correct REST behavior, like
+`HTTP 422` for a populated body that fails Pydantic validation, or
+`HTTP 500` when your engine crashes.
+
+Use this contract for the three scored endpoints (`/triage`, `/extract`,
+`/orchestrate`):
+
+| Situation | Return | Why |
+|---|---|---|
+| Engine crash, LLM timeout, downstream tool failure on a valid request | **`HTTP 200`** with the response envelope, IDs echoed, fields blank/zero, and an `errors[]` array describing the failure | The runner will ingest the response and score the item as a misclassification (partial credit possible). A 500 here forfeits *all* credit for the item. |
+| Populated request body that fails validation (wrong enum, blank required string, type mismatch) | **`HTTP 200`** with the response envelope and `errors[]` | Same reasoning — adversarial inputs are the *test*, not a protocol bug. |
+| Empty request body (`{}`), `null`, or malformed JSON | **`HTTP 400` or `HTTP 422`** | These are the API resilience probes (probes 1, 2, 3). A 200 here would obscure real protocol bugs and is **not** what the probes accept. |
+| Malformed `Content-Type`, oversized payload | Per the probe table above | Probe-specific. |
+
+> **In short:** if the request *looks well-formed* but your service can't
+> produce a real answer, return 200 with a structured error envelope. If
+> the request *itself* is malformed at the HTTP / JSON layer, return 4xx.
+
+A reference `RequestValidationError` handler that implements this split,
+plus per-route `try/except → 200 + envelope`, is in
+[`py/apps/participant-solution/src/main.py`](../../py/apps/participant-solution/src/main.py)
+in the platform repo. If you fork it, preserve both.
+
 ### Tier 2 engineering review
 
-Judges read the whole repo across four dimensions:
+Judges read the whole repo across four dimensions, weighted equally:
 
 | Dimension | Weight | What it covers |
 |---|---|---|
 | Code Quality | 25% | Structure, types, error handling, testing, readability |
-| Architecture Design | 30% | AI pipeline, decomposition, API design, trade-off reasoning, scalability |
+| Architecture Design | 25% | AI pipeline, decomposition, API design, trade-off reasoning, scalability |
 | AI Problem Solving | 25% | Prompt engineering, evaluation methodology, model and cost awareness |
-| Engineering Maturity | 20% | Deployment, config and secrets, observability, security |
+| Engineering Maturity | 25% | Deployment, config and secrets, observability, security |
 
 Each task folder has an `engineering_review.md` with what judges look for on that specific task.
 

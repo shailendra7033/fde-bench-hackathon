@@ -1,4 +1,4 @@
-# Task 3 — Customer Brief
+# Task 3: Customer Brief
 
 The customer wants automation that completes multi-step business workflows without a human watching every tool call. They care about correct outcomes and constraint compliance, not pretty traces.
 
