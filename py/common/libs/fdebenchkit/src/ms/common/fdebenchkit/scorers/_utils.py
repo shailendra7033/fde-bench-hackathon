@@ -45,7 +45,7 @@ def token_f1(candidate: str, gold: str) -> float:
 
     Splits both strings into word tokens after normalization,
     then computes precision/recall/F1 on the token sets.
-    More robust than exact string match for free-text extraction fields:
+    Friendlier than exact string match for free-text extraction fields:
     "type 2 diabetes mellitus" vs "type 2 diabetes" → 0.86 (not 0.0).
 
     Returns 1.0 when both are empty, 0.0 when only one is empty.

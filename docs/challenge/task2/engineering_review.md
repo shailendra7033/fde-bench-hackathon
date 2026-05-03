@@ -1,4 +1,4 @@
-# Task 2 — Engineering Review
+# Task 2: Engineering Review
 
 What judges look for in your extraction code. Tier 2 doesn't affect the leaderboard, but it's how finalists get picked.
 
@@ -26,14 +26,14 @@ What judges look for in your extraction code. Tier 2 doesn't affect the leaderbo
 
 | Dimension | What judges look for |
 |---|---|
-| Deployment (30%) | Same as all tasks — Dockerfile, env config, README. |
+| Deployment (30%) | Same as all tasks: Dockerfile, env config, README. |
 | Config and secrets (25%) | Model endpoint and API keys in env vars. Token limits configurable. |
 | Observability (20%) | Structured logging with `document_id`. Extraction success/failure rates logged. |
 | Security (25%) | Document content treated as untrusted input. Input size limits enforced. |
 
 ## Tips
 
-- Documents are images — you need a vision-capable model (GPT-4o, GPT-4.1, etc.).
+- Documents are images, so you need a vision-capable model.
 - Each document has a different schema. Your prompt should include the `json_schema` so the model knows what to extract.
 - Tables are the hardest part. Financial statements and medical forms have complex tabular data.
-- The scorer is schema-agnostic — it compares your output field-by-field against gold.
+- The scorer is schema-agnostic; it compares your output field-by-field against gold.

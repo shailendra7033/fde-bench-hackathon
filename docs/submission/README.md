@@ -1,18 +1,18 @@
 # Submission
 
-## How to Submit
+## How to submit
 
 1. **Fork** this repo (your fork must be **public**)
-2. **Build** your solution — all 3 task endpoints + health check
+2. **Build** your solution: all 3 task endpoints + health check
 3. **Deploy** somewhere callable via HTTPS (not localhost)
 4. **Test** with the eval harness: run `python run_eval.py --endpoint http://localhost:8000` from `py/apps/eval/`
 5. **Write** your three docs: `docs/architecture.md`, `docs/methodology.md`, `docs/evals.md`
 6. **Push** everything to your public fork
 7. **Submit** at **[aka.ms/fde/hackathon](https://aka.ms/fde/hackaton)**
 
-Think of submission like a deployment rollout — can the endpoints be called reliably, is the code legible, do the docs show you understood the problem?
+Think of submission like a deployment rollout: can the endpoints be called reliably, is the code legible, do the docs show you understood the problem?
 
-## Required Files
+## Required files
 
 ```
 your-repo/
@@ -26,11 +26,11 @@ your-repo/
 
 All three docs are mandatory. Missing one affects your Tier 2 (engineering quality) score.
 
-## What Gets Evaluated
+## What gets evaluated
 
-### Tier 1 — Deterministic (Public Leaderboard)
+### Tier 1: deterministic (public leaderboard)
 
-Your deployed API is called with ~1,000 hidden instances per task.
+Your deployed API is called with a hidden eval set per task (T1: ~1,000, T2: ~500, T3: ~500).
 
 | Dimension | Weight | Description |
 |-----------|--------|-------------|
@@ -40,11 +40,17 @@ Your deployed API is called with ~1,000 hidden instances per task.
 
 Per-task scores are averaged into a FDEBench composite (0-100).
 
-FDEBench rewards consistency — solid across all three tasks usually beats amazing on one and weak on the others.
+FDEBench rewards consistency: solid across all three tasks usually beats amazing on one and weak on the others.
 
-### Tier 2 — LLM-as-Judge (Judges Only)
+#### What you get back from the platform
 
-Four agents read your repo. Scores are **not public** — they inform finalist selection.
+After a submission completes you'll see your aggregate task scores and FDEBench composite. You will **not** see per-dimension scores, per-item feedback, agent reasoning traces, or per-probe pass/fail. Use the local runner at `py/apps/eval/run_eval.py` against `public_eval_50.json` for per-dimension introspection.
+
+Eval items are also shuffled per submission, so join responses on `request_id_key`, not on position. See [How Your Solution Is Scored, Platform behaviour you should know](../eval/fdebench.md#platform-behaviour-you-should-know) for the full list.
+
+### Tier 2: LLM-as-judge (judges only)
+
+Four agents read your repo. Scores are **not public**; they inform finalist selection.
 
 | Agent | Weight | Focus |
 |-------|--------|-------|
@@ -55,7 +61,7 @@ Four agents read your repo. Scores are **not public** — they inform finalist s
 
 See the `engineering_review.md` in each [task folder](../challenge/) for what judges look for per task.
 
-## Required Documents
+## Required documents
 
 See [../challenge/README.md](../challenge/README.md) and the task briefs under [../challenge/](../challenge/) for the challenge context behind each document.
 
@@ -67,7 +73,7 @@ See [../challenge/README.md](../challenge/README.md) and the task briefs under [
 
 If you use the local runner at `py/apps/eval/run_eval.py` to gather your numbers, say so in `docs/evals.md` or `docs/methodology.md`. That makes your evaluation process easier to follow.
 
-## Pre-Submission Checklist
+## Pre-submission checklist
 
 ### Endpoints
 
@@ -88,7 +94,7 @@ If you use the local runner at `py/apps/eval/run_eval.py` to gather your numbers
 
 ### Task 2: Document Extraction
 
-- [ ] Handles `image_base64` content format (document images)
+- [ ] Receives `content_format: "image_base64"` and base64-decodes `content` into PNG bytes (the local harness inlines from `py/data/task2/images/`; the platform inlines from blob storage with anti-reconstruction perturbation; your code sees the same payload shape both ways)
 - [ ] Reads `json_schema` from the request and returns matching structured JSON
 - [ ] Response includes `document_id` plus all fields specified by the document's schema
 - [ ] Nested objects and arrays properly structured (tables, lists, sub-objects)
@@ -98,7 +104,7 @@ If you use the local runner at `py/apps/eval/run_eval.py` to gather your numbers
 - [ ] Actually calls the mock tool endpoints provided in `available_tools`
 - [ ] Returns execution trace with `steps_executed`, tool calls, parameters, results
 - [ ] Reports `constraints_satisfied` indicating which constraints were respected
-- [ ] Handles tool failures gracefully (retry, skip, or report — don't crash)
+- [ ] Handles tool failures gracefully (retry, skip, or report; don't crash)
 
 ### API Resilience
 
@@ -107,9 +113,9 @@ If you use the local runner at `py/apps/eval/run_eval.py` to gather your numbers
 - [ ] Survives 20 concurrent requests (at least 18/20 must succeed)
 - [ ] Recovers from 60s idle (cold start)
 
-### Efficiency Headers (recommended)
+### Efficiency headers (recommended)
 
-- [ ] Responses include `X-Model-Name` header (required for cost scoring — model tier determines your cost score)
+- [ ] Responses include `X-Model-Name` header (required for cost scoring; model tier determines your cost score)
 
 ### Documentation and Repo
 

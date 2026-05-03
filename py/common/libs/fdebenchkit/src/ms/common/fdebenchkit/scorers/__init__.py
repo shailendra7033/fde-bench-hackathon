@@ -1,4 +1,4 @@
-"""Scoring package — deterministic scorers for all FDEBench tasks.
+"""Scoring package: deterministic scorers for all FDEBench tasks.
 
 Submodules:
   - ticket_triage:        Task 1 classification scoring (5 dimensions)

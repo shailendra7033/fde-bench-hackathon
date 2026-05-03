@@ -1,7 +1,7 @@
 [project]
 name = "sample"
 version = "0.0.0"
-description = "FDEBench starter — stub endpoints for all 3 tasks"
+description = "FDEBench starter: stub endpoints for all 3 tasks"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",

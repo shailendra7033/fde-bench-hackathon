@@ -2,14 +2,14 @@
 
 Your Efficiency score (20% of each task) depends on P95 latency. Before submitting, stress-test your deployed API to know where you stand.
 
-## Quick Benchmarks with the Eval Harness
+## Quick benchmarks with the eval harness
 
 The built-in eval harness already measures latency per request. Run it to get your baseline:
 
 ```bash
 cd py
 
-# Full eval — includes latency P95 and efficiency score
+# Full eval, includes latency P95 and efficiency score
 make eval
 
 # Single task
@@ -20,7 +20,7 @@ make eval-orchestrate
 
 The output includes P95 latency, model cost tier, and the computed efficiency score.
 
-## Targeted Load Testing with hey
+## Targeted load testing with hey
 
 [hey](https://github.com/rakyll/hey) is a lightweight HTTP load generator. Install it and fire requests at your API to test throughput and concurrency handling.
 
@@ -42,49 +42,57 @@ cat > /tmp/triage_payload.json << 'EOF'
 }
 EOF
 
-# Baseline — serial requests (check single-request latency)
+# Baseline: serial requests (check single-request latency)
 hey -n 10 -c 1 -m POST \
   -H "Content-Type: application/json" \
   -D /tmp/triage_payload.json \
   http://localhost:8000/triage
 
-# Concurrency test — 20 concurrent requests (matches the burst probe)
+# Concurrency test: 20 concurrent requests (matches the burst probe)
 hey -n 50 -c 20 -m POST \
   -H "Content-Type: application/json" \
   -D /tmp/triage_payload.json \
   http://localhost:8000/triage
 
-# Sustained load — 2 minutes at 5 req/s
+# Sustained load: 2 minutes at 5 req/s
 hey -z 120s -q 5 -c 5 -m POST \
   -H "Content-Type: application/json" \
   -D /tmp/triage_payload.json \
   http://localhost:8000/triage
 ```
 
-### Task 2 (Extract) — Large Payload
+### Task 2 (Extract): inlined-base64 payload
 
-Extract payloads include base64 images (100–700 KB per request). Test with a real payload from the eval data:
+Your `/extract` always receives `content_format: "image_base64"`. The eval
+harness inlines images from `py/data/task2/images/` as base64 before POSTing,
+so payloads are larger (~500 KB–15 MB per request, dominated by the PNG
+size) than the on-disk JSON would suggest. Build a real payload from the
+eval data with the same inlining the harness performs:
 
 ```bash
-# Extract the first eval item as a payload file
+# Inline the first eval item as the wire-format payload
 cd py
 python3 -c "
-import json
-with open('data/task2/public_eval_50.json') as f:
-    items = json.load(f)
+import base64, json, pathlib
+task2 = pathlib.Path('data/task2')
+items = json.load((task2/'public_eval_50.json').open())
+item = dict(items[0])
+img = (task2/item['content']).read_bytes()
+item['content_format'] = 'image_base64'
+item['content'] = base64.b64encode(img).decode()
 with open('/tmp/extract_payload.json', 'w') as f:
-    json.dump(items[0], f)
-print(f'Payload size: {len(json.dumps(items[0]))//1024} KB')
+    json.dump(item, f)
+print(f'Payload size: {len(json.dumps(item))//1024} KB  ({len(img)//1024} KB raw image)')
 "
 
-# Serial baseline (extract is slow — vision model)
+# Serial baseline (extract is slow, vision model)
 hey -n 5 -c 1 -m POST \
   -H "Content-Type: application/json" \
   -D /tmp/extract_payload.json \
   http://localhost:8000/extract
 ```
 
-### Task 3 (Orchestrate) — Multi-Step with Mock Tools
+### Task 3 (Orchestrate): multi-step with mock tools
 
 Orchestration requests call external tool endpoints. Start the mock tool service first:
 
@@ -111,7 +119,7 @@ hey -n 10 -c 2 -m POST \
   http://localhost:8000/orchestrate
 ```
 
-## Load Testing a Deployed API
+## Load testing a deployed API
 
 Test your actual Azure deployment to catch network latency, cold starts, and scaling behavior:
 
@@ -122,13 +130,13 @@ export API_URL=https://your-app.azurecontainerapps.io
 # Health check
 curl -s "$API_URL/health"
 
-# Cold start test — wait 60s, then hit it
+# Cold start test: wait 60s, then hit it
 sleep 60 && hey -n 1 -c 1 -m POST \
   -H "Content-Type: application/json" \
   -D /tmp/triage_payload.json \
   "$API_URL/triage"
 
-# Burst test — 20 concurrent (probe #6 threshold)
+# Burst test: 20 concurrent (probe #6 threshold)
 hey -n 20 -c 20 -m POST \
   -H "Content-Type: application/json" \
   -D /tmp/triage_payload.json \
@@ -139,29 +147,42 @@ cd py/apps/eval
 python run_eval.py --endpoint "$API_URL"
 ```
 
-## What to Look For
+> **Task 2 (Extract) image delivery.** Your `/extract` always receives
+> `content_format: "image_base64"`. The shipped public set on disk uses
+> `content_format: "image_path"` so the JSON file stays small (~80 KB),
+> but `run_eval.py` inlines each PNG from `py/data/task2/images/` as
+> base64 before POSTing, so your endpoint never sees the path form. The
+> platform's hidden-eval scoring does the same translation server-side
+> (downloading from blob storage and applying per-submission anti-
+> reconstruction perturbation, cohort-2 WS1.1) so the wire format is
+> uniform across local-dev and production. Override the harness with
+> `--inline-t2-images=no` only when debugging the on-disk payload
+> shape; the reference solution drops anything other than
+> `image_base64`.
+
+## What to look for
 
 | Metric | Target | Why |
 |--------|--------|-----|
 | P95 latency (triage) | < 2 s | Per-task scoring: 500 ms = 1.0, 5,000 ms = 0.0 |
 | P95 latency (extract) | < 10 s | Per-task scoring: 2,000 ms = 1.0, 20,000 ms = 0.0 |
 | P95 latency (orchestrate) | < 5 s | Per-task scoring: 1,000 ms = 1.0, 10,000 ms = 0.0 |
-| Concurrent burst (20 reqs) | ≥ 18 pass | Probe #6 — if you fail this, you lose ~6% robustness |
-| Cold start | < 15 s | Probe #7 — first request after idle must succeed |
+| Concurrent burst (20 reqs) | ≥ 18 pass | Probe #6: if you fail this, you lose ~6% robustness |
+| Cold start | < 15 s | Probe #7: first request after idle must succeed |
 | Error rate under load | < 5% | Errors reduce your resolution score |
 
-## Common Performance Bottlenecks
+## Common performance bottlenecks
 
 | Problem | Symptom | Fix |
 |---------|---------|-----|
 | Cold start timeout | First request after idle fails | Set min replicas ≥ 1 in Container Apps |
 | Azure OpenAI 429s | Spiky latency, intermittent 500s | Add retry with exponential backoff, use multiple endpoints |
 | Large prompts | High P95 on triage | Trim system prompt, use structured output instead of free-form |
-| Base64 in memory | OOM on extract | Stream the image, don't buffer the full base64 string |
+| Large image in memory | OOM on extract | Stream/decode the image once; don't keep multiple in-memory copies |
 | Sequential tool calls | Slow orchestration | Parallelize independent tool calls where constraints allow |
 | No connection reuse | High latency variance | Use a singleton `AsyncClient` / `AsyncOpenAI`, don't recreate per request |
 
-## Efficiency Scoring Reference
+## Efficiency scoring reference
 
 ```
 efficiency = 0.60 × latency_score + 0.40 × cost_score
@@ -176,8 +197,8 @@ cost_score: based on X-Model-Name header
   nano (gpt-4.1-nano)     → 1.0
   mini (gpt-4.1-mini)     → 0.9
   standard (gpt-4o)       → 0.75
-  full (gpt-4-turbo)      → 0.5
-  premium (o1, o3)        → 0.3
+  full (gpt-5-pro, o3)    → 0.5
+  premium (o1, o3-pro)    → 0.3
 ```
 
 A solution using `gpt-4.1-mini` with P95 at 1.5 s on triage scores:

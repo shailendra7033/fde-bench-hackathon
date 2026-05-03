@@ -1,4 +1,4 @@
-"""Tier 1 scoring runner — full end-to-end evaluation against a live endpoint.
+"""Tier 1 scoring runner: full end-to-end evaluation against a live endpoint.
 
 The runner validates each required task endpoint, executes the configured
 benchmark tasks, aggregates task accuracy, and adds shared efficiency points.
@@ -9,22 +9,27 @@ from typing import Any
 
 import httpx
 
+from ms.common.fdebenchkit import TaskResolutionResult
+from ms.common.fdebenchkit import validate_resolution_result
 from ms.common.fdebenchkit.caller import CallResults
 from ms.common.fdebenchkit.caller import call_endpoint
-from ms.common.fdebenchkit.models import TaskResolutionResult
 from ms.common.fdebenchkit.probes import run_probes
 from ms.common.fdebenchkit.registry import TaskRun
 from ms.common.fdebenchkit.registry import get_task_definition
 from ms.common.fdebenchkit.weights import EFFICIENCY_WEIGHT_COST as WEIGHT_COST
 from ms.common.fdebenchkit.weights import EFFICIENCY_WEIGHT_LATENCY as WEIGHT_LATENCY
 from ms.common.fdebenchkit.weights import LATENCY_BEST_MS
+from ms.common.fdebenchkit.weights import LATENCY_P50_BEST_MS
+from ms.common.fdebenchkit.weights import LATENCY_P50_WORST_MS
+from ms.common.fdebenchkit.weights import LATENCY_P95_BEST_MS
+from ms.common.fdebenchkit.weights import LATENCY_P95_WORST_MS
 from ms.common.fdebenchkit.weights import LATENCY_WORST_MS
 from ms.common.fdebenchkit.weights import ROBUSTNESS_WEIGHT_ADVERSARIAL as WEIGHT_ADVERSARIAL
 from ms.common.fdebenchkit.weights import ROBUSTNESS_WEIGHT_API_RESILIENCE as WEIGHT_API_RESILIENCE
 from ms.common.fdebenchkit.weights import TIER1_WEIGHT_EFFICIENCY as WEIGHT_EFFICIENCY
 from ms.common.fdebenchkit.weights import TIER1_WEIGHT_RESOLUTION as WEIGHT_RESOLUTION
 from ms.common.fdebenchkit.weights import TIER1_WEIGHT_ROBUSTNESS as WEIGHT_ROBUSTNESS
-from ms.common.fdebenchkit.weights import validate_resolution_result
+from ms.common.fdebenchkit.weights import compute_latency_score
 from ms.common.models.base import FrozenBaseModel
 
 try:
@@ -44,29 +49,30 @@ except ModuleNotFoundError:  # pragma: no cover - exercised without OTel install
 
 logger = logging.getLogger(__name__)
 
-# ── Efficiency normalization (from weights.py — single source of truth) ──
+# Efficiency normalization (mirrors weights.py).
 _LATENCY_BEST_MS = LATENCY_BEST_MS
 _LATENCY_WORST_MS = LATENCY_WORST_MS
 
-# ── Circuit breaker thresholds ───────────────────────────────────────
+# Circuit breaker thresholds
 # Cross-task: abort remaining tasks if a task's error rate exceeds this.
 _TASK_CIRCUIT_BREAKER_ERROR_RATE = 0.80
 # Within-task: forwarded to caller.call_endpoint.
 _CALLER_CIRCUIT_BREAKER_THRESHOLD = 10
 
-# ── Model tier scoring ───────────────────────────────────────────────
-# Deterministic cost score from the Azure AI Foundry model catalog
-# + Azure OpenAI pricing page (April 2026). Prefix-matched.
+# Model tier scoring.
 #
-# Tier 1 (100%): Nano/OSS      — $0.05–$0.15/M input
-# Tier 2 (90%):  Mini/Haiku    — $0.15–$0.60/M input
-# Tier 3 (75%):  Standard      — $1.00–$2.50/M input
-# Tier 4 (50%):  Expensive     — $2.50–$10.00/M input
-# Tier 5 (30%):  Premium       — $10.00+/M input
+# Deterministic cost score from the Azure AI Foundry model catalog +
+# Azure OpenAI pricing page (April 2026). Prefix-matched.
+#
+# Tier 1 (100%): Nano/OSS,   $0.05-$0.15/M input
+# Tier 2 (90%):  Mini/Haiku, $0.15-$0.60/M input
+# Tier 3 (75%):  Standard,   $1.00-$2.50/M input
+# Tier 4 (50%):  Expensive,  $2.50-$10.00/M input
+# Tier 5 (30%):  Premium,    $10.00+/M input
 # Unknown/missing: 0%
 
 _MODEL_TIER_SCORES: dict[str, float] = {
-    # ── Tier 1 (100%): Nano + OSS — $0.05–$0.15/M input ──────────
+    # Tier 1 (100%): Nano + OSS, $0.05-$0.15/M input
     "gpt-5.4-nano": 1.0,
     "gpt-5-nano": 1.0,
     "gpt-4.1-nano": 1.0,
@@ -87,7 +93,7 @@ _MODEL_TIER_SCORES: dict[str, float] = {
     "qwen": 1.0,
     "nvidia-egm": 1.0,
     "liquidai": 1.0,
-    # ── Tier 2 (90%): Mini/Haiku — $0.15–$0.60/M input ───────────
+    # Tier 2 (90%): Mini/Haiku, $0.15-$0.60/M input
     "gpt-5.4-mini": 0.9,
     "gpt-5.1-codex-mini": 0.9,
     "gpt-5-mini": 0.9,
@@ -103,7 +109,7 @@ _MODEL_TIER_SCORES: dict[str, float] = {
     "deepseek-v3": 0.9,
     "deepseek-r1": 0.9,
     "cohere-command": 0.9,
-    # ── Tier 3 (75%): Standard — $1.00–$2.50/M input ─────────────
+    # Tier 3 (75%): Standard, $1.00-$2.50/M input
     "o4-mini": 0.75,
     "o3-mini": 0.75,
     "o1-mini": 0.75,
@@ -131,7 +137,7 @@ _MODEL_TIER_SCORES: dict[str, float] = {
     "grok-4-fast": 0.75,
     "grok-4-1-fast": 0.75,
     "grok-code": 0.75,
-    # ── Tier 4 (50%): Expensive — $2.50–$10.00/M input ───────────
+    # Tier 4 (50%): Expensive, $2.50-$10.00/M input
     "gpt-5.4-pro": 0.5,
     "gpt-5-pro": 0.5,
     "gpt-4-turbo": 0.5,
@@ -140,7 +146,7 @@ _MODEL_TIER_SCORES: dict[str, float] = {
     "grok-4": 0.5,
     "grok-4-20": 0.5,
     "computer-use-preview": 0.5,
-    # ── Tier 5 (30%): Premium — $10.00+/M input ──────────────────
+    # Tier 5 (30%): Premium, $10.00+/M input
     "o1": 0.3,
     "o3-pro": 0.3,
     "o3-deep-research": 0.3,
@@ -183,19 +189,22 @@ class TaskScoreSummary(FrozenBaseModel):
     items_scored: int
     items_errored: int
 
-    # ── Per-task efficiency (E_k) ─────────────────────────────────
+    # Per-task efficiency (E_k)
     efficiency_score: float = 0.0  # 0–100
-    latency_score: float = 0.0  # 0–1 (normalized P95)
+    latency_score: float = 0.0  # 0–1 (blend of P50 and P95 sub-scores)
+    latency_p50_score: float = 0.0  # 0–1 (normalized P50)
+    latency_p95_score: float = 0.0  # 0–1 (normalized P95)
+    latency_p50_ms: float = 0.0  # raw milliseconds
     latency_p95_ms: float = 0.0  # raw milliseconds
     cost_score: float = 0.0  # 0–1 (model tier)
     primary_model: str = ""
 
-    # ── Per-task robustness (B_k) ─────────────────────────────────
+    # Per-task robustness (B_k)
     robustness_score: float = 0.0  # 0–100
     api_resilience: float = 0.0  # 0–100
     probe_results: dict[str, bool] | None = None
 
-    # ── Per-task Tier 1 composite ─────────────────────────────────
+    # Per-task Tier 1 composite
     tier1_score: float = 0.0  # 0–100
 
     def to_cosmos_dict(self) -> dict[str, Any]:
@@ -214,6 +223,9 @@ class TaskScoreSummary(FrozenBaseModel):
             "items_errored": self.items_errored,
             "efficiency_score": self.efficiency_score,
             "latency_score": self.latency_score,
+            "latency_p50_score": self.latency_p50_score,
+            "latency_p95_score": self.latency_p95_score,
+            "latency_p50_ms": round(self.latency_p50_ms, 1),
             "latency_p95_ms": round(self.latency_p95_ms, 1),
             "cost_score": self.cost_score,
             "primary_model": self.primary_model,
@@ -334,7 +346,7 @@ def _normalize_model_name(name: str) -> str:
     - Model catalog names: gpt-4.1-mini, gpt-4.1
     - Versioned names: gpt-4.1-mini-2025-04-14, gpt-4-1-mini-2025-04-14
     """
-    import re  # noqa: PLC0415
+    import re  # noqa: PLC0415 # stdlib re used only in this helper
 
     s = name.strip().lower()
     # Strip date suffixes like -2025-04-14
@@ -352,7 +364,8 @@ def _normalize_model_name(name: str) -> str:
 def _lookup_model_tier_score(model_name: str) -> float:
     """Score a model based on its tier (deterministic, not self-reported tokens).
 
-    Robust matching: normalizes hyphens/dots/version suffixes before prefix lookup.
+    Normalizes hyphens/dots/version suffixes before prefix lookup so that
+    minor naming variations (``gpt-4.1`` vs ``gpt-4-1``) match.
     """
     if not model_name:
         return _NO_MODEL_REPORTED_SCORE
@@ -364,10 +377,7 @@ def _lookup_model_tier_score(model_name: str) -> float:
             return _MODEL_TIER_SCORES[prefix]
 
     logger.warning(
-        "unknown_model_tier: model=%s normalized=%s using_fallback=%.1f",
-        model_name,
-        normalized,
-        _FALLBACK_TIER_SCORE,
+        "unknown_model_tier: model=%s normalized=%s using_fallback=%.1f", model_name, normalized, _FALLBACK_TIER_SCORE
     )
     return _FALLBACK_TIER_SCORE
 
@@ -385,20 +395,38 @@ def _compute_model_tier_cost_score(call_results: CallResults) -> tuple[float, st
     return score, primary_model
 
 
-def _normalize_latency(p95_ms: float, best_ms: float = _LATENCY_BEST_MS, worst_ms: float = _LATENCY_WORST_MS) -> float:
-    """Normalize P95 latency to 0-1 score.
+def _normalize_latency(
+    p95_ms: float,
+    *,
+    p50_ms: float | None = None,
+    p50_best_ms: float = LATENCY_P50_BEST_MS,
+    p50_worst_ms: float = LATENCY_P50_WORST_MS,
+    p95_best_ms: float = LATENCY_P95_BEST_MS,
+    p95_worst_ms: float = LATENCY_P95_WORST_MS,
+    # Legacy aliases: some callers still pass ``best_ms`` / ``worst_ms``
+    # from older code paths; treat them as P95 thresholds.
+    best_ms: float | None = None,
+    worst_ms: float | None = None,
+) -> tuple[float, float, float]:
+    """Normalize per-task latency to a blended 0–1 score.
 
-    Uses per-task thresholds when provided, falling back to global defaults.
-    Each task type has different expected latency profiles:
-    - Text classification (triage): fast, best=500ms worst=5000ms
-    - Vision/OCR (extract): slow, best=2000ms worst=20000ms
-    - Multi-step orchestration: medium, best=1000ms worst=10000ms
+    Returns ``(latency_score, p50_score, p95_score)``. Each component
+    is clamped to ``[0, 1]``. The blend is 50/50: a fast tail with a
+    slow median earns the same as a slow tail with a fast median.
     """
-    if p95_ms <= best_ms:
-        return 1.0
-    if p95_ms >= worst_ms:
-        return 0.0
-    return 1.0 - (p95_ms - best_ms) / (worst_ms - best_ms)
+    if best_ms is not None:
+        p95_best_ms = best_ms
+    if worst_ms is not None:
+        p95_worst_ms = worst_ms
+    p50 = p50_ms if p50_ms is not None else p95_ms
+    return compute_latency_score(
+        p50,
+        p95_ms,
+        p50_best_ms=p50_best_ms,
+        p50_worst_ms=p50_worst_ms,
+        p95_best_ms=p95_best_ms,
+        p95_worst_ms=p95_worst_ms,
+    )
 
 
 def _infer_mock_reset_url(task_runs: list[TaskRun]) -> set[str]:
@@ -700,7 +728,7 @@ async def run_scoring(
     for idx, task_run in enumerate(resolved_task_runs):
         task_id = task_run.definition.task_id
 
-        # ── Phase 1: API resilience probes (BEFORE scoring) ──────
+        # Phase 1: API resilience probes (BEFORE scoring)
         # Running probes first detects a dead API early and provides
         # per-task resilience scores for the B_k formula.
         with _tracer.start_as_current_span(
@@ -728,7 +756,7 @@ async def run_scoring(
             else:
                 probe_results_all[probe_name] = probe_results_all[probe_name] and passed
 
-        # ── Phase 2: Call endpoint for all items ─────────────────
+        # Phase 2: Call endpoint for all items
         with _tracer.start_as_current_span(
             "tier1.task.call_endpoint",
             attributes={"task.id": task_id, "items.count": len(task_run.input_items)},
@@ -758,18 +786,21 @@ async def run_scoring(
         aggregate_results.errors += call_results.errors
         aggregate_results.total_latency_ms += call_results.total_latency_ms
 
-        # ── Phase 3: Score responses ─────────────────────────────
+        # Phase 3: Score responses
         candidate_responses = _build_candidate_responses(task_run, call_results)
         scoring_output = task_run.definition.scorer(candidate_responses, task_run.gold_items)
         adversarial_output = _score_adversarial_subset(task_run, candidate_responses, scoring_output)
         base_summary, task_errors = _summarize_task_output(task_run, scoring_output, adversarial_output)
         all_errors.extend(task_errors)
 
-        # ── Phase 4: Per-task efficiency E_k ─────────────────────
-        task_latency_score = _normalize_latency(
+        # Phase 4: Per-task efficiency E_k
+        task_latency_score, task_p50_score, task_p95_score = _normalize_latency(
             call_results.latency_p95_ms,
-            best_ms=task_run.definition.latency_best_ms,
-            worst_ms=task_run.definition.latency_worst_ms,
+            p50_ms=call_results.latency_p50_ms,
+            p50_best_ms=task_run.definition.latency_p50_best_ms,
+            p50_worst_ms=task_run.definition.latency_p50_worst_ms,
+            p95_best_ms=task_run.definition.latency_p95_best_ms,
+            p95_worst_ms=task_run.definition.latency_p95_worst_ms,
         )
         task_cost_score, task_primary_model = _compute_model_tier_cost_score(call_results)
         task_efficiency = round(
@@ -777,13 +808,13 @@ async def run_scoring(
             1,
         )
 
-        # ── Phase 5: Per-task robustness B_k ─────────────────────
+        # Phase 5: Per-task robustness B_k
         task_robustness = round(
             WEIGHT_ADVERSARIAL * base_summary.adversarial_accuracy + WEIGHT_API_RESILIENCE * task_api_resilience,
             1,
         )
 
-        # ── Phase 6: Per-task Tier 1 composite ───────────────────
+        # Phase 6: Per-task Tier 1 composite
         task_tier1 = round(
             WEIGHT_RESOLUTION * base_summary.resolution
             + WEIGHT_EFFICIENCY * task_efficiency
@@ -805,6 +836,9 @@ async def run_scoring(
             items_errored=base_summary.items_errored,
             efficiency_score=task_efficiency,
             latency_score=round(task_latency_score, 4),
+            latency_p50_score=round(task_p50_score, 4),
+            latency_p95_score=round(task_p95_score, 4),
+            latency_p50_ms=round(call_results.latency_p50_ms, 1),
             latency_p95_ms=round(call_results.latency_p95_ms, 1),
             cost_score=round(task_cost_score, 4),
             primary_model=task_primary_model,
@@ -829,7 +863,7 @@ async def run_scoring(
             task_api_resilience,
         )
 
-        # ── Phase 7: Cross-task circuit breaker ──────────────────
+        # Phase 7: Cross-task circuit breaker
         total_results = len(call_results.results)
         if total_results > 0:
             error_rate = call_results.errors / total_results
@@ -837,7 +871,7 @@ async def run_scoring(
                 circuit_breaker_triggered = True
                 aborted_task_ids = [tr.definition.task_id for tr in resolved_task_runs[idx + 1 :]]
                 logger.error(
-                    "circuit_breaker: task=%s error_rate=%.0f%% — aborting %d remaining tasks: %s",
+                    "circuit_breaker: task=%s error_rate=%.0f%% aborting %d remaining tasks: %s",
                     task_id,
                     error_rate * 100,
                     len(aborted_task_ids),
@@ -845,7 +879,7 @@ async def run_scoring(
                 )
                 break
 
-    # ── Aggregate: fdebench = mean(tier1_k) ──────────────────────
+    # Aggregate: fdebench = mean(tier1_k)
     n_tasks = len(task_summaries)
     total = round(sum(t.tier1_score for t in task_summaries) / n_tasks, 1)
     resolution_score = round(sum(t.resolution for t in task_summaries) / n_tasks, 1)
@@ -867,7 +901,7 @@ async def run_scoring(
     # Primary model: most common across all tasks
     model_names = [t.primary_model for t in task_summaries if t.primary_model]
     if model_names:
-        from collections import Counter  # noqa: PLC0415
+        from collections import Counter  # noqa: PLC0415 # stdlib Counter scoped to this aggregation helper
 
         primary_model = Counter(model_names).most_common(1)[0][0]
     else:

@@ -1,24 +1,26 @@
 # Copyright (c) Microsoft. All rights reserved.
-"""Deterministic scoring for Task 3: Workflow Orchestration.
+"""Deterministic scoring for Task 3 (Workflow Orchestration).
 
 Scores candidate execution traces against gold plans. Five dimensions,
-all deterministic — no LLM involved.
+no LLMs involved.
 
 Dimensions and weights (informed by τ-bench outcome-based scoring):
-  1. goal_completion       — 20% — data-driven outcome assertions on end-state
-  2. tool_selection        — 15% — multiset F1 on tools
-  3. parameter_accuracy    — 05% — per-call parameter match (demoted — low variance)
-  4. ordering_correctness  — 20% — dependency constraint satisfaction (causal only)
-  5. constraint_compliance — 40% — data-driven outcome assertions (primary differentiator)
+  1. goal_completion       (20%): data-driven outcome assertions on end-state
+  2. tool_selection        (15%): multiset F1 on tools
+  3. parameter_accuracy    (5%):  per-call parameter match (demoted, low variance)
+  4. ordering_correctness  (20%): dependency constraint satisfaction (causal only)
+  5. constraint_compliance (40%): data-driven outcome assertions (primary differentiator)
 
-Scoring philosophy:
-  - Outcome-weighted: constraint_compliance checks business outcomes, not trace shape.
-  - Strict on correctness: missing parameters penalized, not ignored.
-  - No free points: empty submissions score 0 everywhere.
-  - State-transition, not trace-replay: harmless reordering not penalized.
-  - Data-driven assertions preferred over hardcoded template logic.
-
-All metrics are deterministic. Fully auditable.
+Notes on the weighting:
+  - constraint_compliance carries the most weight because it checks
+    business outcomes, not trace shape.
+  - Empty submissions score 0 everywhere (missing parameters are
+    penalized, not ignored).
+  - Reordering that respects dependencies isn't penalized; we score
+    state transitions, not trace replay.
+  - Outcome assertions are read from the gold dataset rather than
+    hard-coded template branches, so adding new templates doesn't
+    require touching this scorer.
 """
 
 from collections import Counter
@@ -27,19 +29,17 @@ from typing import Any
 
 from ms.common.fdebenchkit.scorers._utils import normalize_text
 
-# ── Weights (sum to 1.0) ─────────────────────────────────────────────
-
-# Weight philosophy (informed by τ-bench outcome-based scoring):
-# Outcome dimensions weighted highest. parameter_accuracy is demoted
-# because it has near-zero variance (mean=0.996, std=0.063) — it doesn't
-# differentiate candidates. Its weight is redistributed to ordering
+# Weights (sum to 1.0).
+# parameter_accuracy is intentionally low: empirically it has near-zero
+# variance across submissions (mean=0.996, std=0.063), so it doesn't
+# differentiate candidates. Its weight was redistributed to ordering
 # (harder to game) and constraints (outcome-based).
 
 WEIGHT_GOAL_COMPLETION = 0.20  # did the workflow complete correctly?
 WEIGHT_TOOL_SELECTION = 0.15  # were the right tools used? (trace)
 WEIGHT_PARAMETER_ACCURACY = 0.05  # were parameters correct? (low variance, demoted)
 WEIGHT_ORDERING = 0.20  # were dependencies respected? (hard to game)
-WEIGHT_CONSTRAINTS = 0.40  # were outcomes correct? (outcome — highest weight)
+WEIGHT_CONSTRAINTS = 0.40  # were outcomes correct? (highest weight)
 
 DIMENSION_WEIGHTS: dict[str, float] = {
     "goal_completion": WEIGHT_GOAL_COMPLETION,
@@ -49,7 +49,7 @@ DIMENSION_WEIGHTS: dict[str, float] = {
     "constraint_compliance": WEIGHT_CONSTRAINTS,
 }
 
-# ── Text normalization ────────────────────────────────────────────────
+# Text normalization
 
 # Use normalize_text from _utils as the local normalizer
 _normalize = normalize_text
@@ -108,7 +108,7 @@ def _param_value_match(candidate: object, gold: object) -> float:
             return 0.0
         return 2 * precision * recall / (precision + recall)
 
-    # Type mismatch — try string comparison as fallback
+    # Type mismatch: fall back to string comparison.
     return 1.0 if _normalize(str(candidate)) == _normalize(str(gold)) else 0.0
 
 
@@ -143,7 +143,7 @@ def _count_matching_calls(
     return count
 
 
-# ── Dimension scorers ─────────────────────────────────────────────────
+# Dimension scorers
 
 
 def score_goal_completion(
@@ -188,6 +188,49 @@ def score_goal_completion(
     return 0.8 * step_coverage + 0.2 * final_match
 
 
+def _alt_tool_map(gold: dict[str, Any]) -> dict[str, dict[str, float]]:
+    """Build {alt_tool_name: {primary_tool_name: credit_factor}} from gold.
+
+    Reads ``gold["acceptable_alternatives"]``, a mapping of step id to either
+    a list of alt tool names (each gets the default 0.9 credit factor) or a
+    dict {alt_tool_name: credit_factor}. Step ids are coerced to strings so
+    callers can use either ints or strings.
+
+    Used by ``score_tool_selection`` to give partial credit when a candidate
+    picked a generic-but-plausible tool over the spec'd specific one.
+    """
+    raw = gold.get("acceptable_alternatives") or {}
+    if not isinstance(raw, dict):
+        return {}
+    steps = gold.get("steps", []) or []
+    primary_by_step: dict[str, str] = {}
+    for step in steps:
+        step_id = step.get("step")
+        tool = step.get("tool")
+        if step_id is None or not tool:
+            continue
+        primary_by_step[str(step_id)] = _normalize(tool)
+
+    alt_map: dict[str, dict[str, float]] = {}
+    for step_id, alts in raw.items():
+        primary = primary_by_step.get(str(step_id))
+        if not primary:
+            continue
+        if isinstance(alts, dict):
+            entries = [(name, float(cf)) for name, cf in alts.items()]
+        elif isinstance(alts, list):
+            entries = [(name, 0.9) for name in alts]
+        else:
+            continue
+        for alt_name, credit_factor in entries:
+            normalized = _normalize(alt_name)
+            if not normalized or normalized == primary:
+                continue
+            credit_factor = max(0.0, min(1.0, credit_factor))
+            alt_map.setdefault(normalized, {})[primary] = credit_factor
+    return alt_map
+
+
 def score_tool_selection(
     candidate_steps: list[dict[str, Any]],
     gold: dict[str, Any],
@@ -196,6 +239,11 @@ def score_tool_selection(
 
     Measures: did the candidate call the right tools (ignoring order/params)?
     Penalizes both missing tools (recall) and unnecessary tools (precision).
+
+    Honors ``gold["acceptable_alternatives"]`` (per-step alt tool list / map):
+    when the candidate substitutes an alt tool for a missing primary, the
+    substitution is credited at the alt's ``credit_factor`` (default 0.9)
+    instead of being treated as a wrong tool.
     """
     if not candidate_steps:
         return 0.0
@@ -204,17 +252,44 @@ def score_tool_selection(
     if not gold_tools:
         return 1.0 if not candidate_steps else 0.0
 
-    gold_counts = Counter(s["tool"] for s in gold.get("steps", []))
-    candidate_counts = Counter(s.get("tool", "") for s in candidate_steps)
+    gold_counts = Counter(_normalize(s["tool"]) for s in gold.get("steps", []))
+    candidate_counts = Counter(_normalize(s.get("tool", "")) for s in candidate_steps)
 
-    # Per-tool min overlap
-    all_tools = set(gold_counts.keys()) | set(candidate_counts.keys())
-    tp = sum(min(gold_counts.get(t, 0), candidate_counts.get(t, 0)) for t in all_tools)
+    # Per-tool min overlap (full credit for exact matches)
+    all_tools = set(gold_counts) | set(candidate_counts)
+    hard_tp = sum(min(gold_counts.get(t, 0), candidate_counts.get(t, 0)) for t in all_tools)
+
+    # Substitution credit for acceptable alternatives.
+    substituted_tp = 0.0
+    alt_map = _alt_tool_map(gold)
+    if alt_map:
+        primary_deficits = {
+            primary: gold_counts.get(primary, 0) - candidate_counts.get(primary, 0)
+            for primary in {p for primaries in alt_map.values() for p in primaries}
+        }
+        for alt_tool, primary_map in alt_map.items():
+            available = candidate_counts.get(alt_tool, 0)
+            if available <= 0:
+                continue
+            # Iterate primaries by descending credit_factor so the best
+            # substitution wins when a single alt could satisfy multiple primaries.
+            for primary, credit_factor in sorted(primary_map.items(), key=lambda item: item[1], reverse=True):
+                deficit = primary_deficits.get(primary, 0)
+                if deficit <= 0:
+                    continue
+                substitutions = min(deficit, available)
+                substituted_tp += substitutions * credit_factor
+                primary_deficits[primary] = deficit - substitutions
+                available -= substitutions
+                if available <= 0:
+                    break
+
+    tp_with_subs = hard_tp + substituted_tp
     gold_total = sum(gold_counts.values())
     candidate_total = sum(candidate_counts.values())
 
-    precision = tp / candidate_total if candidate_total > 0 else 0.0
-    recall = tp / gold_total if gold_total > 0 else 0.0
+    precision = tp_with_subs / candidate_total if candidate_total > 0 else 0.0
+    recall = tp_with_subs / gold_total if gold_total > 0 else 0.0
 
     if precision + recall == 0:
         return 0.0
@@ -362,6 +437,21 @@ def score_ordering_correctness(
 
         dep_checks.append(1.0 if all_satisfied else 0.0)
 
+    # Gold-record-level ``ordered_dependencies``: explicit list of
+    # (earlier_step_id, later_step_id) pairs that MUST hold even when the
+    # per-step ``depends_on`` heuristic in ``_hard_dependencies`` would have
+    # softened or skipped the constraint. Each pair contributes a single
+    # 0.0/1.0 to the dep_checks average.
+    for pair in gold.get("ordered_dependencies") or []:
+        if not isinstance(pair, (list, tuple)) or len(pair) < 2:
+            continue
+        earlier_pos = gold_step_to_position.get(pair[0])
+        later_pos = gold_step_to_position.get(pair[1])
+        if earlier_pos is None or later_pos is None:
+            dep_checks.append(0.0)
+            continue
+        dep_checks.append(1.0 if earlier_pos < later_pos else 0.0)
+
     return sum(dep_checks) / len(dep_checks) if dep_checks else 1.0
 
 
@@ -373,10 +463,10 @@ def score_constraint_compliance(
     """Were outcomes correct? Primary differentiation dimension.
 
     Uses data-driven ``outcome_assertions`` from the gold data when available
-    (preferred — generic, auditable, template-agnostic). Falls back to
-    template-specific hardcoded checks, then generic heuristics.
+    (generic, auditable, template-agnostic). Falls back to template-specific
+    hardcoded checks, then generic heuristics.
 
-    Empty candidate always scores 0 — no free points.
+    Empty candidate always scores 0.
     """
     if not candidate_steps:
         return 0.0
@@ -421,8 +511,8 @@ def score_constraint_compliance(
         else:
             checks.append(1.0)  # Within bounds
 
-    # Check 3: Notification routing — if gold notifies specific teams,
-    # candidate should notify the same teams
+    # Check 3: notification routing. If gold notifies specific teams,
+    # candidate should notify the same teams.
     gold_notifications = [s["parameters"].get("user_id", "") for s in gold_steps if s["tool"] == "notification_send"]
     candidate_notifications = [
         s.get("parameters", {}).get("user_id", "")
@@ -436,8 +526,8 @@ def score_constraint_compliance(
             overlap = len(gold_targets & candidate_targets)
             checks.append(overlap / len(gold_targets))
 
-    # Check 4: Email targets — if gold sends to specific accounts,
-    # candidate should send to the same accounts (not to skipped ones)
+    # Check 4: email targets. If gold sends to specific accounts,
+    # candidate should send to the same accounts (not to skipped ones).
     gold_emails = [s["parameters"].get("account_id", "") for s in gold_steps if s["tool"] == "email_send"]
     candidate_emails = [
         s.get("parameters", {}).get("account_id", "")
@@ -609,10 +699,8 @@ def _score_template_goal_completion(
                 _count_matching_params(
                     candidate_steps,
                     "email_send",
-                    lambda params: (
-                        _normalize(params.get("template", "")) == "renewal_quote"
-                        and _normalize(str(params.get("variables", {}).get("plan", ""))) == expected_plan
-                    ),
+                    lambda params: _normalize(params.get("template", "")) == "renewal_quote"
+                    and _normalize(str(params.get("variables", {}).get("plan", ""))) == expected_plan,
                 )
                 == 1,
                 _count_matching_params(
@@ -732,19 +820,15 @@ def _score_template_constraints(
                 _count_matching_params(
                     candidate_steps,
                     "notification_send",
-                    lambda params: (
-                        _normalize(params.get("user_id", "")) == "oncall_engineer"
-                        and _normalize(params.get("channel", "")) == "sms"
-                    ),
+                    lambda params: _normalize(params.get("user_id", "")) == "oncall_engineer"
+                    and _normalize(params.get("channel", "")) == "sms",
                 )
                 == 1,
                 _count_matching_params(
                     candidate_steps,
                     "notification_send",
-                    lambda params: (
-                        _normalize(params.get("user_id", "")) == "engineering_manager"
-                        and _normalize(params.get("channel", "")) == "slack"
-                    ),
+                    lambda params: _normalize(params.get("user_id", "")) == "engineering_manager"
+                    and _normalize(params.get("channel", "")) == "slack",
                 )
                 == (1 if escalated else 0),
             ]
@@ -790,7 +874,7 @@ def _hard_dependencies(current_step: dict[str, Any], gold_steps: list[dict[str, 
     return dependencies
 
 
-# ── Outcome assertions evaluator ──────────────────────────────────────
+# Outcome assertions evaluator
 
 
 def evaluate_outcome_assertions(
@@ -800,13 +884,13 @@ def evaluate_outcome_assertions(
     """Evaluate data-driven outcome assertions against candidate steps.
 
     Each assertion is a dict with:
-      - check: "call_count" (default) — count tool calls matching criteria
-            - check: "tool_count" — compare total executed call count to bounds
-      - tool: which tool to check
-            - match: dict of param key/value pairs ALL of which must match as a recursive subset
-      - equals: exact count required
-      - min: minimum count required
-      - max: maximum count required
+      - check: "call_count" (default) counts tool calls matching criteria.
+      - check: "tool_count" compares total executed call count to bounds.
+      - tool: which tool to check.
+      - match: dict of param key/value pairs ALL of which must match as a recursive subset.
+      - equals: exact count required.
+      - min: minimum count required.
+      - max: maximum count required.
 
     Returns fraction of assertions satisfied (0.0–1.0).
     """
@@ -847,13 +931,13 @@ def evaluate_outcome_assertions(
                 passed = passed and (count <= maximum)
             results.append(passed)
         else:
-            # Unknown check type — skip
+            # Unknown check type, skip.
             pass
 
     return sum(1.0 for r in results if r) / len(results) if results else 1.0
 
 
-# ── Per-task scorer ───────────────────────────────────────────────────
+# Per-task scorer
 
 
 def score_task(
@@ -890,7 +974,7 @@ def score_task(
     }
 
 
-# ── Full submission scorer ────────────────────────────────────────────
+# Full submission scorer
 
 
 def score_submission(

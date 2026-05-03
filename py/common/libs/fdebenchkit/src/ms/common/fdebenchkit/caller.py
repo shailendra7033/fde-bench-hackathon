@@ -5,11 +5,11 @@ Runs ``concurrency`` requests in parallel using asyncio.Semaphore.
 Records per-call latency for efficiency scoring.
 
 Fairness features:
-  * **Warm-up phase** — sends throwaway requests before timing to eliminate
+  * **Warm-up phase**: sends throwaway requests before timing to eliminate
     TCP/TLS handshake and model cold-start bias.
-  * **Trimmed percentiles** — excludes top/bottom 5 % latency outliers so a
+  * **Trimmed percentiles**: excludes top/bottom 5 % latency outliers so a
     single spike doesn't dominate the score.
-  * **Cost header extraction** — reads ``X-Model-Name``, ``X-Prompt-Tokens``,
+  * **Cost header extraction**: reads ``X-Model-Name``, ``X-Prompt-Tokens``,
     ``X-Completion-Tokens`` from each response for measured cost scoring.
 """
 
@@ -55,7 +55,7 @@ MAX_RESPONSE_BYTES = 10 * 1024 * 1024
 # Prevents wasting minutes of timeout budget on a dead API.
 DEFAULT_CIRCUIT_BREAKER_THRESHOLD = 10
 
-# ── Default warm-up request ──────────────────────────────────────────
+# Default warm-up request
 # A minimal valid Task 1 request used when the caller is invoked without
 # a task-specific warm-up payload.
 _DEFAULT_WARMUP_REQUEST: dict[str, Any] = {
@@ -231,7 +231,7 @@ async def call_endpoint(
         return ticket_result
 
     async with httpx.AsyncClient(timeout=httpx.Timeout(timeout)) as client:
-        # ── Warm-up phase: eliminate cold-start bias ──────────────
+        # Warm-up phase: eliminate cold-start bias
         if warm_up_requests > 0:
             logger.info("warm_up_start: count=%d", warm_up_requests)
             warm_up_tasks = [
@@ -242,7 +242,7 @@ async def call_endpoint(
             warm_up_ok = sum(1 for r in warm_up_results if r.response is not None)
             logger.info("warm_up_done: ok=%d/%d", warm_up_ok, warm_up_requests)
 
-        # ── Timed scoring phase with circuit breaker ─────────────
+        # Timed scoring phase with circuit breaker
         tasks = [_call_with_breaker(item) for item in items]
         ticket_results = await asyncio.gather(*tasks)
 
@@ -276,7 +276,7 @@ async def _call_single(
         return result
 
     async with semaphore:
-        # Re-check after acquiring — breaker may have tripped while waiting
+        # Re-check after acquiring; breaker may have tripped while waiting.
         if abort_event is not None and abort_event.is_set():
             result.error = "circuit_breaker_open"
             return result

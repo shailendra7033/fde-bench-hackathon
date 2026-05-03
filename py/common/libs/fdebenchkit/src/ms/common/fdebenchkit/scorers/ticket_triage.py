@@ -1,11 +1,11 @@
 """Deterministic scoring for Task 1: Support Ticket Triage.
 
 Scores 5 classification dimensions with proper statistical metrics:
-  1. category      — macro F1 across 8 categories          (24%)
-  2. priority      — mean ordinal partial credit (P1–P4)   (24%)
-  3. routing       — macro F1 across 7 teams               (24%)
-  4. missing_info  — mean per-ticket set F1                 (17%)
-  5. escalation    — binary F1 on the positive class        (12%)
+  1. category      : macro F1 across 8 categories          (24%)
+  2. priority      : mean ordinal partial credit (P1-P4)   (24%)
+  3. routing       : macro F1 across 7 teams               (24%)
+  4. missing_info  : mean per-ticket set F1                 (17%)
+  5. escalation    : binary F1 on the positive class        (12%)
 
 All weights sum to 1.0 for FDEBench Tier 1 consistency.
 Efficiency (latency + cost) is scored separately by the runner at the
@@ -20,7 +20,7 @@ from ms.common.fdebenchkit.scorers._utils import binary_f1
 from ms.common.fdebenchkit.scorers._utils import macro_f1
 from ms.common.fdebenchkit.scorers._utils import normalize_text
 
-# ── Weights (sum to 1.0 for FDEBench Tier 1 consistency) ────────────
+# Weights (sum to 1.0 for FDEBench Tier 1 consistency)
 # Rescaled from the original 85-point scheme (÷ 0.85) so all tasks
 # use the same contract: resolution weights sum to 1.0, efficiency
 # is a separate layer.
@@ -31,7 +31,7 @@ WEIGHT_ROUTING = 0.24
 WEIGHT_MISSING_INFO = 0.17
 WEIGHT_ESCALATION = 0.11
 
-# ── Closed label sets ────────────────────────────────────────────────
+# Closed label sets
 
 CATEGORIES = (
     "Crew Access & Biometrics",
@@ -54,7 +54,7 @@ TEAMS = (
     "None",
 )
 
-# ── Priority distance table ──────────────────────────────────────────
+# Priority distance table
 
 _PRIORITY_ORDER = {"P1": 0, "P2": 1, "P3": 2, "P4": 3}
 
@@ -63,11 +63,11 @@ _PRIORITY_ORDER = {"P1": 0, "P2": 1, "P3": 2, "P4": 3}
 _normalize = normalize_text
 
 
-# ── Submission-level aggregate metrics ───────────────────────────────
+# Submission-level aggregate metrics
 # macro_f1 and binary_f1 are imported from _utils
 
 
-# ── Per-ticket dimension scorers (for transparency / error analysis) ─
+# Per-ticket dimension scorers (for transparency / error analysis)
 
 
 def score_category(candidate: str, gold: str) -> float:
@@ -79,9 +79,9 @@ def score_priority(candidate: str, gold: str) -> float:
     """Priority match with partial credit for off-by-one.
 
     Returns:
-        1.0  — exact match
-        0.67 — off by one level (e.g., P2 vs P3)
-        0.0  — off by two or more levels, or invalid label
+        1.0  exact match
+        0.67 off by one level (e.g., P2 vs P3)
+        0.0  off by two or more levels, or invalid label
     """
     c_idx = _PRIORITY_ORDER.get(candidate.strip().upper())
     g_idx = _PRIORITY_ORDER.get(gold.strip().upper())
@@ -146,7 +146,7 @@ def _coerce_bool(value: object) -> bool:
     return False
 
 
-# ── Per-ticket scorer ────────────────────────────────────────────────
+# Per-ticket scorer
 
 
 def score_ticket(candidate: dict[str, object], gold: dict[str, object]) -> dict[str, float]:
@@ -205,7 +205,7 @@ def score_ticket(candidate: dict[str, object], gold: dict[str, object]) -> dict[
     }
 
 
-# ── Full submission scorer ───────────────────────────────────────────
+# Full submission scorer
 
 
 def score_submission(
