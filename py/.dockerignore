@@ -1,0 +1,13 @@
+**/__pycache__
+**/.env
+**/.env.*
+**/.venv
+**/node_modules
+**/*.pyc
+.git
+.gitignore
+docs/
+infra/
+ts/
+data/
+*.md

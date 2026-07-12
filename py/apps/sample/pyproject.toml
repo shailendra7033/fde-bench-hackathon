@@ -1,13 +1,17 @@
 [project]
 name = "sample"
 version = "0.0.0"
-description = "FDEBench starter: stub endpoints for all 3 tasks"
+description = "FDEBench solution: triage, extract, orchestrate"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn>=0.34.0",
     "pydantic>=2.11.0",
+    "pydantic-settings>=2.0.0",
     "email-validator>=2.0.0",
+    "openai>=1.60.0",
+    "httpx>=0.28.1",
+    "tenacity>=9.0.0",
 ]
 
 [dependency-groups]

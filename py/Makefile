@@ -35,19 +35,19 @@ setup: ## Install all dependencies
 	@echo "Setup complete. Run 'make run' to start the sample solution."
 
 run: ## Start the sample solution on port 8000
-	cd apps/sample && uvicorn main:app --port 8000 --reload
+	uv run --package sample uvicorn main:app --port 8000 --reload --app-dir apps/sample
 
 eval: ## Score all 3 tasks against http://localhost:8000
-	cd apps/eval && python run_eval.py --endpoint http://localhost:8000
+	uv run --package eval python apps/eval/run_eval.py --endpoint http://localhost:8000
 
 eval-triage: ## Score Task 1 only
-	cd apps/eval && python run_eval.py --endpoint http://localhost:8000 --task triage
+	uv run --package eval python apps/eval/run_eval.py --endpoint http://localhost:8000 --task triage
 
 eval-extract: ## Score Task 2 only
-	cd apps/eval && python run_eval.py --endpoint http://localhost:8000 --task extract
+	uv run --package eval python apps/eval/run_eval.py --endpoint http://localhost:8000 --task extract
 
 eval-orchestrate: ## Score Task 3 only
-	cd apps/eval && python run_eval.py --endpoint http://localhost:8000 --task orchestrate
+	uv run --package eval python apps/eval/run_eval.py --endpoint http://localhost:8000 --task orchestrate
 
 mock-tools: ## Start the mock tool service for Task 3 (port 9090)
-	cd apps/eval && python mock_tool_service.py
+	uv run --package eval python apps/eval/mock_tool_service.py
