@@ -1,140 +1,205 @@
-# Be a Microsoft FDE for a Day
+# FDEBench Solution — Be a Microsoft FDE for a Day
 
-<p align="center">Three real customer problems. One API. Score yourself with FDEBench.</p>
+A production-deployed FastAPI service that solves three AI-powered business problems (Signal Triage, Document Extraction, Workflow Orchestration) scored by [FDEBench](docs/challenge/README.md).
 
-<p align="center">
-  <a href="https://youtu.be/Lp6fq74zYBY">
-    <img src="https://img.youtube.com/vi/Lp6fq74zYBY/maxresdefault.jpg" alt="Be a Microsoft FDE for a Day — watch the intro" width="720">
-  </a>
-</p>
+**Live endpoint:** `https://fde-solution.braveglacier-ab8fc7b3.eastus2.azurecontainerapps.io`
 
-<p align="center"><sub>▶ 2-minute cold open from the Delta team. Watch this first.</sub></p>
+---
 
-## Overview
+## Solution Architecture
 
-You're deploying an API that solves three business problems, scored by [FDEBench](docs/challenge/README.md).
+### Infrastructure Diagram
 
-Each task comes from a real customer engagement: noisy inputs, messy documents, multi-step workflows with constraints. Your solution needs to actually work, not just pass tests. FDEBench scores it on accuracy, latency, cost, resilience, and code quality. Judges read your repo too.
+```mermaid
+graph LR
+    subgraph Client
+        A[FDEBench Eval Harness]
+    end
 
-| Task | Endpoint | What you're solving |
-|------|----------|---------------------|
-| Signal Triage | `POST /triage` | Classify and route noisy mission signals |
-| Document Extraction | `POST /extract` | Extract structured data from document images (receipts, invoices, forms, financial statements) |
-| Workflow Orchestration | `POST /orchestrate` | Execute multi-step business workflows with tool calls, constraints, and failure handling |
+    subgraph Azure Container Apps
+        B[fde-solution<br/>FastAPI · 2 workers<br/>Port 8000]
+    end
 
-## Getting started
+    subgraph Azure AI Foundry
+        C[gpt-5.4-nano<br/>Azure OpenAI Deployment]
+    end
 
-1. Read [docs/challenge/README.md](docs/challenge/README.md) for the scoring formula and what you're building.
-2. Pick a task folder ([task1/](docs/challenge/task1/), [task2/](docs/challenge/task2/), [task3/](docs/challenge/task3/)) and read its README plus the support docs in the same folder.
-3. Look at the data and schemas in [py/data/](py/data/).
-4. Set up and run the local scorer:
+    subgraph Azure Container Registry
+        D[fdehackathonacr<br/>Docker Image: fde-solution:v1]
+    end
+
+    A -->|HTTPS POST| B
+    B -->|Chat Completions API| C
+    D -->|Image Pull| B
+```
+
+### Request/Response Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant FastAPI as FastAPI (Container App)
+    participant LLM as Azure OpenAI (gpt-5.4-nano)
+    participant Tools as Mock Tool Service (Task 3)
+
+    Client->>FastAPI: POST /triage, /extract, /orchestrate
+    FastAPI->>FastAPI: Validate request, check size/content-type
+    FastAPI->>LLM: Chat Completion (with system prompt + user data)
+    LLM-->>FastAPI: Structured JSON response
+    alt Task 3 only
+        FastAPI->>Tools: HTTP calls to tool endpoints
+        Tools-->>FastAPI: Tool execution results
+    end
+    FastAPI-->>Client: JSON response + X-Model-Name header
+```
+
+### Azure Resources Used
+
+| Resource | Purpose |
+|----------|---------|
+| **Azure AI Foundry** | Hosts `gpt-5.4-nano` deployment for all LLM inference |
+| **Azure Container Registry** | Stores the Docker image (`fde-solution:v1`) |
+| **Azure Container Apps Environment** | Managed hosting with auto-TLS, scaling (1–3 replicas) |
+| **Azure Container App** | Runs the FastAPI service, publicly accessible via HTTPS |
+
+---
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check — returns `{"status": "ok"}` |
+| `POST` | `/triage` | Classifies and routes noisy mission signals into structured routing decisions |
+| `POST` | `/extract` | Extracts structured data from base64-encoded document images using vision |
+| `POST` | `/orchestrate` | Plans and executes multi-step workflows with real HTTP tool calls |
+
+All `POST` endpoints return an `X-Model-Name: gpt-5.4-nano` header for cost scoring.
+
+### Resilience Features
+
+- `415` for wrong `Content-Type`
+- `413` for oversized payloads (>50 KB on non-extract routes)
+- `422` for validation errors, `400` for malformed JSON
+- Retry logic with exponential backoff on transient LLM errors (429, 5xx)
+- 2 Uvicorn workers for concurrent request handling
+
+---
+
+## Repository Structure
+
+```
+├── py/
+│   ├── apps/
+│   │   ├── sample/              # The solution application
+│   │   │   ├── main.py          # FastAPI app, routes, middleware
+│   │   │   ├── config.py        # Pydantic settings (env vars)
+│   │   │   ├── llm_client.py    # Azure OpenAI client + retry logic
+│   │   │   ├── triage_service.py    # Task 1: LLM classification
+│   │   │   ├── extract_service.py   # Task 2: Vision extraction
+│   │   │   ├── orchestrate_service.py # Task 3: Plan + execute
+│   │   │   └── models.py        # Pydantic request/response models
+│   │   └── eval/                # Eval harness (scoring tool)
+│   ├── common/libs/             # Shared libraries (models, fastapi helpers)
+│   ├── data/                    # Test data + JSON schemas per task
+│   ├── Dockerfile               # Production container image
+│   └── Makefile                 # Dev commands (setup, run, eval)
+├── docs/
+│   ├── architecture.md          # System design and tradeoffs
+│   ├── methodology.md           # Approach and iteration
+│   └── evals.md                 # Scores and error analysis
+├── implemention-docs/           # Internal design notes
+└── infra/                       # IaC (Pulumi)
+```
+
+---
+
+## Local Development
+
+### Prerequisites
+
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+- Azure OpenAI access (API key + endpoint)
+
+### Setup & Run
 
 ```bash
 cd py
-make setup   # install deps (once)
-make run     # start the sample app on :8000 (terminal 1)
-make eval    # score all 3 tasks (terminal 2)
+make setup   # install all dependencies (once)
+make run     # start the app on http://localhost:8000
 ```
 
-You can also score individual tasks: `make eval-triage`, `make eval-extract`, `make eval-orchestrate`.
+### Run Evals Locally
 
-The local scorer gives you a full FDEBench breakdown: resolution, efficiency, robustness, probes.
-
-When you're ready, see [docs/submission/](docs/submission/) for the submission checklist and submit at [aka.ms/fde/hackathon](https://aka.ms/fde/hackaton).
-
-## Repository structure
-
-```
-├── docs/
-│   ├── challenge/       # Task specs, scoring rubric, FDEBench framework
-│   ├── data/            # Public datasets + JSON schemas (task1/, task2/, task3/)
-│   ├── eval/            # Eval harness documentation
-│   └── submission/      # Submission format and checklist
-├── py/                  # Python workspace (uv)
-│   ├── common/libs/     # Provided: FastAPI helpers, Pydantic models, fdebenchkit
-│   ├── libs/            # Your libraries
-│   └── apps/            # Your applications + eval harness
-├── ts/                  # TypeScript workspace (pnpm)
-│   ├── libs/            # Your libraries
-│   └── apps/            # Your applications
-└── infra/               # Infrastructure as Code (Pulumi + Azure)
-    └── app/             # Your Pulumi program
-```
-
-## Development environment
-
-Work locally or in any cloud-hosted environment. A [devcontainer](.devcontainer/) is included if you want a pre-configured setup, but it's optional.
-
-Requirements: Python 3.12+, Node.js 22+, [uv](https://docs.astral.sh/uv/), [pnpm](https://pnpm.io/).
+In a second terminal:
 
 ```bash
-# Python: install dependencies and fix namespace packages
-cd py && make setup
-
-# TypeScript (optional)
-cd ts && pnpm install
-
-# Pre-commit hooks (optional)
-uvx pre-commit install
+cd py
+make eval              # score all 3 tasks
+make eval-triage       # Task 1 only
+make eval-extract      # Task 2 only
+make eval-orchestrate  # Task 3 only
 ```
 
-> **macOS note:** if you see `ModuleNotFoundError: No module named 'ms'` after a fresh `uv sync`, run `make setup`. It fixes a macOS quirk where hidden-file flags prevent Python from loading namespace packages.
+### Environment Variables
 
-## Rules
+Create `py/apps/sample/.env`:
 
-- Five submissions per person.
-- Any language, any framework, any AI model.
-- AI coding assistants (Copilot, Cursor, Claude) are encouraged.
-- Must be deployed and callable via HTTPS.
-- Documentation is required: `docs/architecture.md`, `docs/methodology.md`, `docs/evals.md`.
-
-## How you're scored
-
-FDEBench has two tiers. Tier 1 drives the public leaderboard. Tier 2 informs finalist selection.
-
-### Tier 1: deterministic (public leaderboard)
-
-Your deployed API is called with a hidden eval set per task (~1,000 items for Task 1, ~500 each for Tasks 2 and 3). Scoring is fully deterministic, no LLM judges.
-
-```
-tier1_k = 0.50 x Resolution + 0.20 x Efficiency + 0.30 x Robustness
-fdebench = mean(tier1_task1, tier1_task2, tier1_task3)
+```env
+AZURE_OPENAI_ENDPOINT=https://your-resource.services.ai.azure.com
+AZURE_OPENAI_API_KEY=your-key
+AZURE_OPENAI_DEPLOYMENT=gpt-5.4-nano
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
+MODEL_NAME=gpt-5.4-nano
 ```
 
-| Dimension | Weight | What it measures |
-|-----------|--------|------------------|
-| Resolution | 50% | Did you produce the right answer for the task's business outcome? |
-| Efficiency | 20% | Was it fast and cheap enough to be operationally usable? |
-| Robustness | 30% | Does your API survive adversarial cases, malformed input, concurrency, and cold starts? |
+---
 
-Per-task Tier 1 scores are averaged into a composite FDEBench score (0-100).
+## Deployed Endpoint Testing
 
-Scoring code: [py/common/libs/fdebenchkit/](py/common/libs/fdebenchkit/).
+Run the eval harness against the live Azure deployment:
 
-### Tier 2: LLM-as-judge
+```bash
+cd py
+uv run --package eval python apps/eval/run_eval.py --endpoint https://fde-solution.braveglacier-ab8fc7b3.eastus2.azurecontainerapps.io
+```
 
-Judges only (not public). Four agents read your repository and score engineering quality, weighted equally. These scores help judges differentiate finalists with similar Tier 1 scores.
+Quick smoke test:
 
-| Agent | Weight | Focus |
-|-------|--------|-------|
-| Code Quality | 25% | Structure, types, error handling, testing, readability |
-| Architecture Design | 25% | AI pipeline, decomposition, API design, tradeoff reasoning |
-| AI Problem Solving | 25% | Prompt engineering, evaluation methodology, model and cost awareness |
-| Engineering Maturity | 25% | Deployment readiness, config and secrets, observability, security |
+```bash
+curl https://fde-solution.braveglacier-ab8fc7b3.eastus2.azurecontainerapps.io/health
+# → {"status":"ok"}
+```
 
-Full scoring details: [docs/challenge/README.md](docs/challenge/README.md).
+---
 
-## Before you submit
+## Deployment
 
-- `GET /health` returns HTTP 200.
-- `POST /triage` returns valid JSON per the output schema.
-- `POST /extract` returns valid JSON per the output schema.
-- `POST /orchestrate` returns valid JSON per the output schema.
-- `docs/architecture.md`, `docs/methodology.md`, `docs/evals.md` are substantive, not placeholders.
-- Deployed via HTTPS, handles 10+ concurrent requests, responds in under 30s.
-- Public GitHub repository with a README explaining how to install, run, and test.
+The app is containerized and deployed to **Azure Container Apps** via **Azure Container Registry**.
 
-See [docs/submission/](docs/submission/) for the full checklist, then submit at [aka.ms/fde/hackathon](https://aka.ms/fde/hackaton).
+```bash
+# Build and push image to ACR (from py/ folder)
+az acr build --registry fdehackathonacr --resource-group fdebench-rg --image fde-solution:v1 --file Dockerfile .
+```
+
+Container App configuration:
+- **CPU:** 1 vCPU, **Memory:** 2 GiB
+- **Min replicas:** 1 (avoids cold-start penalty)
+- **Max replicas:** 3 (handles burst concurrency)
+- **Ingress:** External HTTPS on port 8000
+- **Environment variables:** Azure OpenAI credentials injected at deploy time
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [docs/architecture.md](docs/architecture.md) | System design, AI pipeline, tradeoffs |
+| [docs/methodology.md](docs/methodology.md) | Approach, iteration, what worked/failed |
+| [docs/evals.md](docs/evals.md) | Scores, error analysis, limitations |
+
+---
 
 ## License
 
