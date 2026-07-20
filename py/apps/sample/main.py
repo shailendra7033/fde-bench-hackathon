@@ -9,6 +9,7 @@ Score:
     make eval      # score all 3 tasks (in a second terminal)
 """
 
+import asyncio
 import json
 import logging
 
@@ -157,8 +158,14 @@ async def triage(req: TriageRequest, response: Response) -> TriageResponse:
 async def extract(req: ExtractRequest, response: Response) -> ExtractResponse:
     _add_headers(response)
     try:
-        result = await extract_document(req.document_id, req.content, req.json_schema)
+        result = await asyncio.wait_for(
+            extract_document(req.document_id, req.content, req.json_schema),
+            timeout=27.0,
+        )
         return ExtractResponse(**result)
+    except asyncio.TimeoutError:
+        logger.warning("Extract timed out for %s, returning fallback", req.document_id)
+        return ExtractResponse(document_id=req.document_id)
     except Exception as exc:
         logger.exception("Extract failed for %s: %s", req.document_id, exc)
         return ExtractResponse(document_id=req.document_id)

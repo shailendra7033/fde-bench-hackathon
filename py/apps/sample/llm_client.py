@@ -44,8 +44,8 @@ def _should_retry(retry_state) -> bool:
 
 @retry(
     retry=_should_retry,
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
+    stop=stop_after_attempt(2),
+    wait=wait_exponential(multiplier=1, min=1, max=5),
     reraise=True,
     before_sleep=lambda retry_state: logger.warning(
         "LLM call retry #%d after %s", retry_state.attempt_number, retry_state.outcome.exception()

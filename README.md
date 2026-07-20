@@ -25,7 +25,7 @@ graph LR
     end
 
     subgraph Azure Container Registry
-        D[fdehackathonacr<br/>Docker Image: fde-solution:v1]
+        D[fdebenchacr<br/>Docker Image: fde-solution:v1]
     end
 
     A -->|HTTPS POST| B
@@ -178,8 +178,14 @@ curl https://fde-solution.braveglacier-ab8fc7b3.eastus2.azurecontainerapps.io/he
 The app is containerized and deployed to **Azure Container Apps** via **Azure Container Registry**.
 
 ```bash
-# Build and push image to ACR (from py/ folder)
-az acr build --registry fdehackathonacr --resource-group fdebench-rg --image fde-solution:v1 --file Dockerfile .
+# Build and push NEW image to ACR (from py/ folder) — original v1 stays in registry
+az acr build --registry fdebenchacr --resource-group fdebench-rg --image fde-solution:v2 --file Dockerfile .
+
+# Deploy new image to Container App
+az containerapp update --name fde-solution --resource-group fdebench-rg --image fdebenchacr.azurecr.io/fde-solution:v2
+
+# Rollback (if needed)
+az containerapp update --name fde-solution --resource-group fdebench-rg --image fdebenchacr.azurecr.io/fde-solution:v1
 ```
 
 Container App configuration:

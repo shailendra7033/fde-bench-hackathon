@@ -46,7 +46,7 @@ async def extract_document(document_id: str, content_b64: str, json_schema_str: 
         ],
         response_format={"type": "json_object"},
         temperature=0.0,
-        max_tokens=8192,
+        max_tokens=4096,
     )
 
     parsed = json.loads(result)
