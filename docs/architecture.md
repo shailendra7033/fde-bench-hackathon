@@ -29,7 +29,7 @@ graph TB
     end
 
     subgraph "Azure Container Registry"
-        ACR[fdehackathonacr<br/>fde-solution:v1]
+        ACR[fdebenchacr<br/>fde-solution:v1]
     end
 
     subgraph "Mock Tool Service (Task 3)"
@@ -203,7 +203,7 @@ Every endpoint wraps its service call in try/except and returns a safe fallback 
 |----------|------|---------|
 | Resource Group | `fdebench-rg` | Logical container for all resources |
 | Azure AI Foundry | `fdebench-project-resource-1` | Hosts gpt-5.4-nano deployment |
-| Azure Container Registry | `fdehackathonacr` | Stores Docker image |
+| Azure Container Registry | `fdebenchacr` | Stores Docker image |
 | Container Apps Environment | `fde-env` | Managed hosting environment |
 | Container App | `fde-solution` | Runs the FastAPI service |
 
@@ -217,7 +217,7 @@ Every endpoint wraps its service call in try/except and returns a safe fallback 
 
 ### Deployment
 ```bash
-az acr build --registry fdehackathonacr --resource-group fdebench-rg --image fde-solution:v1 --file Dockerfile .
+az acr build --registry fdebenchacr --resource-group fdebench-rg --image fde-solution:v1 --file Dockerfile .
 ```
 Image is built in ACR (cloud-side), no local Docker required.
 
